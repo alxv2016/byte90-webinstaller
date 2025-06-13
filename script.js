@@ -6,7 +6,11 @@ const SERIAL_COMMANDS = {
   SEND_CHUNK: 'SEND_CHUNK',
   FINISH_UPDATE: 'FINISH_UPDATE',
   ABORT_UPDATE: 'ABORT_UPDATE',
-  RESTART: 'RESTART'
+  RESTART: 'RESTART',
+  ROLLBACK: 'ROLLBACK',
+  GET_PARTITION_INFO: 'GET_PARTITION_INFO',
+  GET_STORAGE_INFO: 'GET_STORAGE_INFO',
+  VALIDATE_FIRMWARE: 'VALIDATE_FIRMWARE'
 };
 
 const RESPONSE_PREFIXES = {
@@ -15,14 +19,11 @@ const RESPONSE_PREFIXES = {
   PROGRESS: 'PROGRESS:'
 };
 
-// Use much larger chunks for better performance
-const CHUNK_SIZE = 2048; // Increased to 2KB chunks
+// Optimized settings for speed and reliability
+const CHUNK_SIZE = 2048; // 2KB chunks for optimal performance
 const COMMAND_TIMEOUT = 3000;
 const CHUNK_TIMEOUT = 8000; // Longer timeout for larger chunks
 const MAX_RETRIES = 1;
-
-// This will reduce your chunk count from 1012 to about 506 chunks
-// Roughly half the protocol overhead = roughly double the speed
 
 // Global state
 let serialPort = null;
@@ -32,7 +33,7 @@ let isConnected = false;
 let updateInProgress = false;
 let deviceInfo = null;
 
-// DOM elements with null checks
+// DOM elements
 const elements = {};
 
 // Utility function to safely get elements
@@ -58,7 +59,6 @@ function initializeElements() {
     elements[id] = safeGetElement(id);
   });
 
-  // Check for critical elements
   const criticalElements = ['connectBtn', 'disconnectBtn', 'uploadBtn', 'abortBtn'];
   const missingCritical = criticalElements.filter(id => !elements[id]);
   
@@ -131,10 +131,6 @@ const utils = {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   },
 
-  stringToBase64(str) {
-    return btoa(str);
-  },
-
   arrayBufferToBase64(buffer) {
     let binary = '';
     const bytes = new Uint8Array(buffer);
@@ -147,81 +143,9 @@ const utils = {
 };
 
 // Serial communication functions
-// Updated serial object with different timeouts for different commands
 const serial = {
   pendingCommand: null,
   
-  async sendCommand(command, data = '', customTimeout = COMMAND_TIMEOUT) {
-    if (!writer) {
-      throw new Error('Not connected to device');
-    }
-
-    return new Promise((resolve, reject) => {
-      const commandString = data ? `${command}:${data}\n` : `${command}\n`;
-      const encoder = new TextEncoder();
-      
-      // Use custom timeout for different commands
-      const timeoutMs = command === SERIAL_COMMANDS.SEND_CHUNK ? CHUNK_TIMEOUT : customTimeout;
-      
-      // Set up timeout
-      const timeout = setTimeout(() => {
-        console.error(`Command timeout (${timeoutMs}ms): ${command}`);
-        serial.pendingCommand = null;
-        reject(new Error(`Command timeout: ${command}`));
-      }, timeoutMs);
-
-      // Store the resolve function for the response handler
-      serial.pendingCommand = (response) => {
-        clearTimeout(timeout);
-        if (response && response.success !== undefined) {
-          resolve(response);
-        } else {
-          console.error(`Invalid response for ${command}:`, response);
-          reject(new Error(`Invalid response for ${command}`));
-        }
-      };
-
-      // Send the command
-      writer.write(encoder.encode(commandString)).catch(error => {
-        clearTimeout(timeout);
-        serial.pendingCommand = null;
-        console.error('Write failed:', error);
-        reject(error);
-      });
-    });
-  },
-
-  async sendCommandWithRetry(command, data = '', retries = MAX_RETRIES) {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        if (command === SERIAL_COMMANDS.SEND_CHUNK) {
-          console.log(`Sending chunk (attempt ${attempt})...`);
-        } else {
-          console.log(`Sending command: ${command} (attempt ${attempt})`);
-        }
-        
-        const result = await this.sendCommand(command, data);
-        
-        if (command === SERIAL_COMMANDS.SEND_CHUNK) {
-          console.log(`Chunk sent successfully`);
-        } else {
-          console.log(`Command ${command} succeeded:`, result);
-        }
-        
-        return result;
-      } catch (error) {
-        console.warn(`Command ${command} attempt ${attempt} failed:`, error);
-        if (attempt === retries) {
-          throw error;
-        }
-        // Longer delay before retry for chunks
-        const retryDelay = command === SERIAL_COMMANDS.SEND_CHUNK ? 1000 : 200;
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-      }
-    }
-  },
-
-  // ... rest of the serial object methods stay the same
   async connect() {
     try {
       if (!navigator.serial) {
@@ -293,6 +217,71 @@ const serial = {
     } catch (error) {
       console.error('Disconnect failed:', error);
       return false;
+    }
+  },
+
+  async sendCommand(command, data = '', customTimeout = COMMAND_TIMEOUT) {
+    if (!writer) {
+      throw new Error('Not connected to device');
+    }
+
+    return new Promise((resolve, reject) => {
+      const commandString = data ? `${command}:${data}\n` : `${command}\n`;
+      const encoder = new TextEncoder();
+      
+      const timeoutMs = command === SERIAL_COMMANDS.SEND_CHUNK ? CHUNK_TIMEOUT : customTimeout;
+      
+      const timeout = setTimeout(() => {
+        console.error(`Command timeout (${timeoutMs}ms): ${command}`);
+        serial.pendingCommand = null;
+        reject(new Error(`Command timeout: ${command}`));
+      }, timeoutMs);
+
+      serial.pendingCommand = (response) => {
+        clearTimeout(timeout);
+        if (response && response.success !== undefined) {
+          resolve(response);
+        } else {
+          console.error(`Invalid response for ${command}:`, response);
+          reject(new Error(`Invalid response for ${command}`));
+        }
+      };
+
+      writer.write(encoder.encode(commandString)).catch(error => {
+        clearTimeout(timeout);
+        serial.pendingCommand = null;
+        console.error('Write failed:', error);
+        reject(error);
+      });
+    });
+  },
+
+  async sendCommandWithRetry(command, data = '', retries = MAX_RETRIES) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        if (command === SERIAL_COMMANDS.SEND_CHUNK) {
+          console.log(`Sending chunk (attempt ${attempt})...`);
+        } else {
+          console.log(`Sending command: ${command} (attempt ${attempt})`);
+        }
+        
+        const result = await this.sendCommand(command, data);
+        
+        if (command === SERIAL_COMMANDS.SEND_CHUNK) {
+          console.log(`Chunk sent successfully`);
+        } else {
+          console.log(`Command ${command} succeeded:`, result);
+        }
+        
+        return result;
+      } catch (error) {
+        console.warn(`Command ${command} attempt ${attempt} failed:`, error);
+        if (attempt === retries) {
+          throw error;
+        }
+        const retryDelay = command === SERIAL_COMMANDS.SEND_CHUNK ? 1000 : 200;
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
     }
   },
 
@@ -389,9 +378,6 @@ const serial = {
 };
 
 // Update functions
-// Enhanced version with status checking
-// Fixed update functions
-// Optimized update functions with smaller chunks
 const updater = {
   async startUpdate() {
     const file = elements.firmwareFile?.files[0];
@@ -407,17 +393,28 @@ const updater = {
       return;
     }
 
+    const expectedFilename = updateType === 'firmware' ? 'byte90.bin' : 'byte90animations.bin';
+    if (!file.name.includes(updateType === 'firmware' ? 'byte90' : 'byte90animations')) {
+      utils.showStatus(elements.updateStatus, `Please select the correct file (${expectedFilename})`, 'error');
+      return;
+    }
+
     try {
       updateInProgress = true;
       ui.updateUpdateState(true);
       utils.hideStatus(elements.updateStatus);
       utils.updateProgress(0, 'Checking device status...');
 
-      // Check and reset device state
       try {
         console.log('Getting device status...');
         const statusResponse = await serial.sendCommand(SERIAL_COMMANDS.GET_STATUS);
         console.log('Device status:', statusResponse);
+        
+        if (statusResponse && statusResponse.update_active) {
+          console.log('Device has active update, aborting...');
+          await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       } catch (error) {
         console.warn('Failed to get status:', error);
       }
@@ -435,7 +432,6 @@ const updater = {
 
       utils.updateProgress(3, 'Starting new update...');
 
-      // Start update
       console.log(`Starting update: ${file.size} bytes, type: ${updateType}`);
       
       const startResponse = await serial.sendCommandWithRetry(
@@ -457,7 +453,6 @@ const updater = {
       console.log('Update started successfully, beginning file transfer...');
       utils.updateProgress(5, 'Reading firmware file...');
       
-      // Read file and send in smaller chunks
       const arrayBuffer = await file.arrayBuffer();
       const totalChunks = Math.ceil(arrayBuffer.byteLength / CHUNK_SIZE);
       
@@ -475,8 +470,7 @@ const updater = {
         const chunk = arrayBuffer.slice(start, end);
         const base64Chunk = utils.arrayBufferToBase64(chunk);
 
-        // Update progress more frequently for smaller chunks
-        if (i % 5 === 0 || i === totalChunks - 1) {
+        if (i % 20 === 0 || i === totalChunks - 1) {
           const transferProgress = 10 + ((i / totalChunks) * 80);
           const elapsed = (performance.now() - startTime) / 1000;
           const speed = bytesTransferred / elapsed || 0;
@@ -486,19 +480,18 @@ const updater = {
           
           utils.updateProgress(
             transferProgress, 
-            `Uploading: ${Math.round(transferProgress)}% (${speedText}) - Chunk ${i}/${totalChunks}`
+            `Uploading: ${Math.round(transferProgress)}% (${speedText})`
           );
           
-          if (i % 20 === 0) {
+          if (i % 50 === 0) {
             console.log(`Chunk ${i}/${totalChunks} (${transferProgress.toFixed(1)}%) - ${speedText}`);
           }
         }
 
         try {
-          const chunkResponse = await serial.sendCommandWithRetry(
+          const chunkResponse = await serial.sendCommand(
             SERIAL_COMMANDS.SEND_CHUNK, 
-            base64Chunk,
-            2 // 2 retries for chunks
+            base64Chunk
           );
           
           if (!chunkResponse || !chunkResponse.success) {
@@ -506,7 +499,6 @@ const updater = {
             throw new Error(chunkResponse?.message || `Chunk ${i + 1} rejected by device`);
           }
 
-          // Reset error counter on success
           consecutiveErrors = 0;
           
         } catch (chunkError) {
@@ -517,7 +509,6 @@ const updater = {
             throw new Error(`Too many consecutive errors (${consecutiveErrors}). Last error: ${chunkError.message}`);
           }
           
-          // Don't increment i, retry the same chunk
           i--;
           continue;
         }
@@ -531,7 +522,6 @@ const updater = {
 
       utils.updateProgress(95, 'Finalizing update...');
 
-      // Finish update
       const finishResponse = await serial.sendCommandWithRetry(SERIAL_COMMANDS.FINISH_UPDATE);
       
       if (!finishResponse || !finishResponse.success) {
@@ -549,7 +539,6 @@ const updater = {
       updateInProgress = false;
       ui.updateUpdateState(false);
       
-      // Try to clean up
       try {
         console.log('Cleaning up after error...');
         await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
@@ -641,7 +630,6 @@ const ui = {
 
 // Event listeners
 function initializeEventListeners() {
-  // Only add listeners if elements exist
   if (elements.connectBtn) {
     elements.connectBtn.addEventListener('click', serial.connect);
   }
@@ -658,7 +646,6 @@ function initializeEventListeners() {
     elements.abortBtn.addEventListener('click', updater.abortUpdate);
   }
 
-  // Enable upload button when file is selected
   if (elements.firmwareFile) {
     elements.firmwareFile.addEventListener('change', (e) => {
       if (elements.uploadBtn) {
@@ -667,14 +654,12 @@ function initializeEventListeners() {
     });
   }
 
-  // Handle page visibility changes
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && updateInProgress) {
       console.warn('Page hidden during update - this may cause issues');
     }
   });
 
-  // Handle page unload
   window.addEventListener('beforeunload', (e) => {
     if (updateInProgress) {
       e.preventDefault();
@@ -706,7 +691,6 @@ window.addEventListener('unhandledrejection', (event) => {
 function init() {
   console.log('Initializing BYTE-90 Serial Updater...');
   
-  // Initialize DOM elements first
   if (!initializeElements()) {
     console.error('Failed to initialize DOM elements');
     return;
@@ -715,7 +699,6 @@ function init() {
   ui.checkCompatibility();
   initializeEventListeners();
   
-  // Initial state
   ui.updateConnectionState(false);
   ui.updateUpdateState(false);
   utils.hideStatus(elements.connectionStatus);
