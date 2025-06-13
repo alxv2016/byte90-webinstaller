@@ -124,13 +124,13 @@ const serial = {
       
       utils.showStatus(elements.connectionStatus, 'Opening serial connection...', 'warning');
       
-      // Open port with even higher baud rate
+      // Maximum baud rate for ESP32
       await serialPort.open({ 
-        baudRate: 921600, // Even faster - 2x the current speed
+        baudRate: 2000000, // 2Mbps - maximum for most ESP32 systems
         dataBits: 8,
         stopBits: 1,
         parity: 'none',
-        bufferSize: 4096,
+        bufferSize: 8192, // Larger buffer
         flowControl: 'none'
       });
 
