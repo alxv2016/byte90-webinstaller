@@ -142,7 +142,10 @@ const utils = {
 };
 
 // Serial communication functions
+// Fixed serial communication functions
 const serial = {
+  pendingCommand: null,
+  
   async connect() {
     try {
       if (!navigator.serial) {
@@ -227,42 +230,52 @@ const serial = {
       throw new Error('Not connected to device');
     }
 
-    const commandString = data ? `${command}:${data}\n` : `${command}\n`;
-    const encoder = new TextEncoder();
-    
-    try {
-      await writer.write(encoder.encode(commandString));
+    return new Promise((resolve, reject) => {
+      const commandString = data ? `${command}:${data}\n` : `${command}\n`;
+      const encoder = new TextEncoder();
       
-      // Wait for response with timeout
-      return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Command timeout'));
-        }, COMMAND_TIMEOUT);
+      // Set up timeout
+      const timeout = setTimeout(() => {
+        console.error(`Command timeout: ${command}`);
+        serial.pendingCommand = null;
+        reject(new Error(`Command timeout: ${command}`));
+      }, COMMAND_TIMEOUT);
 
-        const handleResponse = (response) => {
-          clearTimeout(timeout);
+      // Store the resolve function for the response handler
+      serial.pendingCommand = (response) => {
+        clearTimeout(timeout);
+        if (response && response.success !== undefined) {
           resolve(response);
-        };
+        } else {
+          console.error(`Invalid response for ${command}:`, response);
+          reject(new Error(`Invalid response for ${command}`));
+        }
+      };
 
-        // Store the resolve function for the response handler
-        serial.pendingCommand = handleResponse;
+      // Send the command
+      writer.write(encoder.encode(commandString)).catch(error => {
+        clearTimeout(timeout);
+        serial.pendingCommand = null;
+        console.error('Write failed:', error);
+        reject(error);
       });
-    } catch (error) {
-      console.error('Send command failed:', error);
-      throw error;
-    }
+    });
   },
 
   async sendCommandWithRetry(command, data = '', retries = MAX_RETRIES) {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        return await this.sendCommand(command, data);
+        console.log(`Sending command: ${command} (attempt ${attempt})`);
+        const result = await this.sendCommand(command, data);
+        console.log(`Command ${command} succeeded:`, result);
+        return result;
       } catch (error) {
+        console.warn(`Command ${command} attempt ${attempt} failed:`, error);
         if (attempt === retries) {
           throw error;
         }
-        console.warn(`Command attempt ${attempt} failed, retrying...`, error);
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Brief delay before retry
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
   },
@@ -307,8 +320,9 @@ const serial = {
       const jsonStr = line.substring(RESPONSE_PREFIXES.OK.length);
       try {
         response = JSON.parse(jsonStr);
+        console.log('Parsed OK response:', response);
       } catch (e) {
-        console.error('Failed to parse OK response:', e);
+        console.error('Failed to parse OK response:', jsonStr, e);
         return;
       }
     } else if (line.startsWith(RESPONSE_PREFIXES.ERROR)) {
@@ -316,8 +330,9 @@ const serial = {
       try {
         response = JSON.parse(jsonStr);
         response.success = false;
+        console.log('Parsed ERROR response:', response);
       } catch (e) {
-        console.error('Failed to parse ERROR response:', e);
+        console.error('Failed to parse ERROR response:', jsonStr, e);
         return;
       }
     } else if (line.startsWith(RESPONSE_PREFIXES.PROGRESS)) {
@@ -325,10 +340,14 @@ const serial = {
       try {
         response = JSON.parse(jsonStr);
         isProgress = true;
+        console.log('Parsed PROGRESS response:', response);
       } catch (e) {
-        console.error('Failed to parse PROGRESS response:', e);
+        console.error('Failed to parse PROGRESS response:', jsonStr, e);
         return;
       }
+    } else {
+      // Non-JSON response (debug logs, etc.)
+      return;
     }
 
     if (isProgress) {
@@ -352,14 +371,15 @@ const serial = {
       const handler = serial.pendingCommand;
       serial.pendingCommand = null;
       handler(response);
+    } else {
+      console.warn('Received response but no pending command:', response);
     }
-  },
-
-  pendingCommand: null
+  }
 };
 
 // Update functions
 // Enhanced version with status checking
+// Fixed update functions
 const updater = {
   async startUpdate() {
     const file = elements.firmwareFile?.files[0];
@@ -375,6 +395,13 @@ const updater = {
       return;
     }
 
+    // Validate file type based on selection
+    const expectedFilename = updateType === 'firmware' ? 'byte90.bin' : 'byte90animations.bin';
+    if (!file.name.includes(updateType === 'firmware' ? 'byte90' : 'byte90animations')) {
+      utils.showStatus(elements.updateStatus, `Please select the correct file (${expectedFilename})`, 'error');
+      return;
+    }
+
     try {
       updateInProgress = true;
       ui.updateUpdateState(true);
@@ -383,13 +410,14 @@ const updater = {
 
       // Check current status first
       try {
+        console.log('Getting device status...');
         const statusResponse = await serial.sendCommand(SERIAL_COMMANDS.GET_STATUS);
         console.log('Device status:', statusResponse);
         
         if (statusResponse && statusResponse.update_active) {
           console.log('Device has active update, aborting...');
           await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for abort
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       } catch (error) {
         console.warn('Failed to get status, continuing with abort anyway:', error);
@@ -399,9 +427,9 @@ const updater = {
 
       // Always abort any existing update to reset state
       try {
+        console.log('Sending ABORT_UPDATE...');
         await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
         console.log('Device state reset');
-        // Give ESP32 time to process the abort
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
         console.warn('Abort command failed (normal if no update was active):', error);
@@ -409,22 +437,38 @@ const updater = {
 
       utils.updateProgress(3, 'Starting new update...');
 
-      // Start update
+      // Start update with detailed logging
+      console.log(`Starting update: ${file.size} bytes, type: ${updateType}`);
+      
       const startResponse = await serial.sendCommandWithRetry(
         SERIAL_COMMANDS.START_UPDATE, 
         `${file.size},${updateType}`,
         2 // Only 2 retries for start command
       );
 
-      if (!startResponse || !startResponse.success) {
-        throw new Error(startResponse?.message || 'Failed to start update');
+      console.log('Start update response:', startResponse);
+
+      if (!startResponse) {
+        throw new Error('No response from START_UPDATE command');
       }
 
-      // Rest of the update process...
+      if (!startResponse.success) {
+        throw new Error(startResponse.message || 'START_UPDATE command failed');
+      }
+
+      // Verify we're in the right state
+      if (startResponse.state !== 'RECEIVING') {
+        throw new Error(`Expected RECEIVING state, got: ${startResponse.state}`);
+      }
+
+      console.log('Update started successfully, beginning file transfer...');
       utils.updateProgress(5, 'Reading firmware file...');
+      
+      // Read file and send in chunks
       const arrayBuffer = await file.arrayBuffer();
       const totalChunks = Math.ceil(arrayBuffer.byteLength / CHUNK_SIZE);
       
+      console.log(`File read: ${arrayBuffer.byteLength} bytes in ${totalChunks} chunks`);
       utils.updateProgress(10, 'Starting upload...');
 
       const startTime = performance.now();
@@ -436,6 +480,7 @@ const updater = {
         const chunk = arrayBuffer.slice(start, end);
         const base64Chunk = utils.arrayBufferToBase64(chunk);
 
+        // Update progress every 10 chunks
         if (i % 10 === 0) {
           const transferProgress = 10 + ((i / totalChunks) * 80);
           const elapsed = (performance.now() - startTime) / 1000;
@@ -448,16 +493,23 @@ const updater = {
             transferProgress, 
             `Uploading: ${Math.round(transferProgress)}% (${speedText})`
           );
+          
+          console.log(`Chunk ${i}/${totalChunks} (${transferProgress.toFixed(1)}%) - ${speedText}`);
         }
 
-        const chunkResponse = await serial.sendCommandWithRetry(
-          SERIAL_COMMANDS.SEND_CHUNK, 
-          base64Chunk,
-          1 // Only 1 retry for chunks to avoid timeouts
-        );
-        
-        if (!chunkResponse || !chunkResponse.success) {
-          throw new Error(chunkResponse?.message || `Failed to send chunk ${i + 1}`);
+        try {
+          const chunkResponse = await serial.sendCommandWithRetry(
+            SERIAL_COMMANDS.SEND_CHUNK, 
+            base64Chunk,
+            1 // Only 1 retry for chunks to avoid timeouts
+          );
+          
+          if (!chunkResponse || !chunkResponse.success) {
+            throw new Error(chunkResponse?.message || `Failed to send chunk ${i + 1}/${totalChunks}`);
+          }
+        } catch (chunkError) {
+          console.error(`Chunk ${i + 1} failed:`, chunkError);
+          throw new Error(`Chunk ${i + 1}/${totalChunks} failed: ${chunkError.message}`);
         }
 
         bytesTransferred = end;
@@ -469,6 +521,7 @@ const updater = {
 
       utils.updateProgress(95, 'Finalizing update...');
 
+      // Finish update
       const finishResponse = await serial.sendCommandWithRetry(SERIAL_COMMANDS.FINISH_UPDATE);
       
       if (!finishResponse || !finishResponse.success) {
@@ -477,6 +530,8 @@ const updater = {
 
       utils.updateProgress(100, 'Update completed successfully!');
       utils.showStatus(elements.updateStatus, 'Update completed! Device will restart automatically.', 'success');
+      updateInProgress = false;
+      ui.updateUpdateState(false);
 
     } catch (error) {
       console.error('Update failed:', error);
@@ -486,10 +541,23 @@ const updater = {
       
       // Try to clean up
       try {
+        console.log('Cleaning up after error...');
         await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
       } catch (abortError) {
         console.warn('Failed to abort update after error:', abortError);
       }
+    }
+  },
+
+  async abortUpdate() {
+    try {
+      await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
+      updateInProgress = false;
+      ui.updateUpdateState(false);
+      utils.resetProgress();
+      utils.showStatus(elements.updateStatus, 'Update aborted', 'warning');
+    } catch (error) {
+      console.error('Failed to abort update:', error);
     }
   }
 };
