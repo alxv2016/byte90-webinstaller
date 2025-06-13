@@ -38,6 +38,8 @@ const elements = {
   updateType: document.getElementById('updateType'),
   firmwareFile: document.getElementById('firmwareFile'),
   uploadBtn: document.getElementById('uploadBtn'),
+  showSerialUpdate: document.getElementById('showSerialUpdate'),
+  serialUpdateSection: document.getElementById('serialUpdateSection'),
   abortBtn: document.getElementById('abortBtn'),
   progressContainer: document.getElementById('progressContainer'),
   uploadProgress: document.getElementById('uploadProgress'),
@@ -124,13 +126,13 @@ const serial = {
       
       utils.showStatus(elements.connectionStatus, 'Opening serial connection...', 'warning');
       
-      // Maximum baud rate for ESP32
+      // Use reliable high-speed baud rate
       await serialPort.open({ 
-        baudRate: 2000000, // 2Mbps - maximum for most ESP32 systems
+        baudRate: 921600, // Very reliable high speed
         dataBits: 8,
         stopBits: 1,
         parity: 'none',
-        bufferSize: 8192, // Larger buffer
+        bufferSize: 16384, // Much larger buffer for big chunks
         flowControl: 'none'
       });
 
@@ -663,6 +665,16 @@ const ui = {
 
 // Event listeners
 function initializeEventListeners() {
+  elements.showSerialUpdate.addEventListener('click', () => {
+    elements.serialUpdateSection.style.display = 'block';
+    elements.showSerialUpdate.textContent = 'Hide Serial Update';
+    elements.showSerialUpdate.onclick = () => {
+      elements.serialUpdateSection.style.display = 'none';
+      elements.showSerialUpdate.textContent = 'Use Serial Update';
+      elements.showSerialUpdate.onclick = arguments.callee.bind(elements.showSerialUpdate);
+    };
+  });
+
   elements.connectBtn.addEventListener('click', serial.connect);
   elements.disconnectBtn.addEventListener('click', serial.disconnect);
   elements.uploadBtn.addEventListener('click', updater.startUpdate);
