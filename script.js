@@ -15,8 +15,9 @@ const RESPONSE_PREFIXES = {
   PROGRESS: 'PROGRESS:'
 };
 
-const CHUNK_SIZE = 1536; // Optimized chunk size
-const COMMAND_TIMEOUT = 5000;
+const CHUNK_SIZE = 1024; // Reduced from 1536 to speed up processing
+const COMMAND_TIMEOUT = 5000; // General command timeout
+const CHUNK_TIMEOUT = 15000; // Longer timeout specifically for chunks
 const MAX_RETRIES = 3;
 
 // Global state
@@ -142,20 +143,89 @@ const utils = {
 };
 
 // Serial communication functions
-// Fixed serial communication functions
+// Updated serial object with different timeouts for different commands
 const serial = {
   pendingCommand: null,
   
+  async sendCommand(command, data = '', customTimeout = COMMAND_TIMEOUT) {
+    if (!writer) {
+      throw new Error('Not connected to device');
+    }
+
+    return new Promise((resolve, reject) => {
+      const commandString = data ? `${command}:${data}\n` : `${command}\n`;
+      const encoder = new TextEncoder();
+      
+      // Use custom timeout for different commands
+      const timeoutMs = command === SERIAL_COMMANDS.SEND_CHUNK ? CHUNK_TIMEOUT : customTimeout;
+      
+      // Set up timeout
+      const timeout = setTimeout(() => {
+        console.error(`Command timeout (${timeoutMs}ms): ${command}`);
+        serial.pendingCommand = null;
+        reject(new Error(`Command timeout: ${command}`));
+      }, timeoutMs);
+
+      // Store the resolve function for the response handler
+      serial.pendingCommand = (response) => {
+        clearTimeout(timeout);
+        if (response && response.success !== undefined) {
+          resolve(response);
+        } else {
+          console.error(`Invalid response for ${command}:`, response);
+          reject(new Error(`Invalid response for ${command}`));
+        }
+      };
+
+      // Send the command
+      writer.write(encoder.encode(commandString)).catch(error => {
+        clearTimeout(timeout);
+        serial.pendingCommand = null;
+        console.error('Write failed:', error);
+        reject(error);
+      });
+    });
+  },
+
+  async sendCommandWithRetry(command, data = '', retries = MAX_RETRIES) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        if (command === SERIAL_COMMANDS.SEND_CHUNK) {
+          console.log(`Sending chunk (attempt ${attempt})...`);
+        } else {
+          console.log(`Sending command: ${command} (attempt ${attempt})`);
+        }
+        
+        const result = await this.sendCommand(command, data);
+        
+        if (command === SERIAL_COMMANDS.SEND_CHUNK) {
+          console.log(`Chunk sent successfully`);
+        } else {
+          console.log(`Command ${command} succeeded:`, result);
+        }
+        
+        return result;
+      } catch (error) {
+        console.warn(`Command ${command} attempt ${attempt} failed:`, error);
+        if (attempt === retries) {
+          throw error;
+        }
+        // Longer delay before retry for chunks
+        const retryDelay = command === SERIAL_COMMANDS.SEND_CHUNK ? 1000 : 200;
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+    }
+  },
+
+  // ... rest of the serial object methods stay the same
   async connect() {
     try {
       if (!navigator.serial) {
         throw new Error('Web Serial API not supported');
       }
 
-      // Request port
       serialPort = await navigator.serial.requestPort();
       
-      // Open port with matching baud rate from ESP32 (921600)
       await serialPort.open({ 
         baudRate: 921600,
         dataBits: 8,
@@ -164,17 +234,14 @@ const serial = {
         flowControl: 'none'
       });
 
-      // Set up reader and writer
       reader = serialPort.readable.getReader();
       writer = serialPort.writable.getWriter();
 
       isConnected = true;
       ui.updateConnectionState(true);
 
-      // Start listening for responses
       serial.startListening();
 
-      // Get device info
       try {
         const info = await serial.sendCommand(SERIAL_COMMANDS.GET_INFO);
         if (info && info.success) {
@@ -225,61 +292,6 @@ const serial = {
     }
   },
 
-  async sendCommand(command, data = '') {
-    if (!writer) {
-      throw new Error('Not connected to device');
-    }
-
-    return new Promise((resolve, reject) => {
-      const commandString = data ? `${command}:${data}\n` : `${command}\n`;
-      const encoder = new TextEncoder();
-      
-      // Set up timeout
-      const timeout = setTimeout(() => {
-        console.error(`Command timeout: ${command}`);
-        serial.pendingCommand = null;
-        reject(new Error(`Command timeout: ${command}`));
-      }, COMMAND_TIMEOUT);
-
-      // Store the resolve function for the response handler
-      serial.pendingCommand = (response) => {
-        clearTimeout(timeout);
-        if (response && response.success !== undefined) {
-          resolve(response);
-        } else {
-          console.error(`Invalid response for ${command}:`, response);
-          reject(new Error(`Invalid response for ${command}`));
-        }
-      };
-
-      // Send the command
-      writer.write(encoder.encode(commandString)).catch(error => {
-        clearTimeout(timeout);
-        serial.pendingCommand = null;
-        console.error('Write failed:', error);
-        reject(error);
-      });
-    });
-  },
-
-  async sendCommandWithRetry(command, data = '', retries = MAX_RETRIES) {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        console.log(`Sending command: ${command} (attempt ${attempt})`);
-        const result = await this.sendCommand(command, data);
-        console.log(`Command ${command} succeeded:`, result);
-        return result;
-      } catch (error) {
-        console.warn(`Command ${command} attempt ${attempt} failed:`, error);
-        if (attempt === retries) {
-          throw error;
-        }
-        // Brief delay before retry
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-    }
-  },
-
   async startListening() {
     const decoder = new TextDecoder();
     let buffer = '';
@@ -292,7 +304,6 @@ const serial = {
 
         buffer += decoder.decode(value, { stream: true });
         
-        // Process complete lines
         let lines = buffer.split('\n');
         buffer = lines.pop() || '';
 
@@ -315,7 +326,6 @@ const serial = {
     let response = null;
     let isProgress = false;
 
-    // Parse response based on prefix
     if (line.startsWith(RESPONSE_PREFIXES.OK)) {
       const jsonStr = line.substring(RESPONSE_PREFIXES.OK.length);
       try {
@@ -346,12 +356,10 @@ const serial = {
         return;
       }
     } else {
-      // Non-JSON response (debug logs, etc.)
       return;
     }
 
     if (isProgress) {
-      // Handle progress updates
       const percent = response.progress || 0;
       const message = response.message || `${percent}%`;
       utils.updateProgress(percent, message);
@@ -367,7 +375,6 @@ const serial = {
         }
       }
     } else if (serial.pendingCommand) {
-      // Handle command responses
       const handler = serial.pendingCommand;
       serial.pendingCommand = null;
       handler(response);
