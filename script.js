@@ -155,7 +155,7 @@ const serial = {
       serialPort = await navigator.serial.requestPort();
       
       await serialPort.open({ 
-        baudRate: 921600,
+        baudRate: 460800,
         dataBits: 8,
         stopBits: 1,
         parity: 'none',
