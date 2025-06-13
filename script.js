@@ -391,6 +391,13 @@ const serial = {
           ui.updateUpdateState(false);
         }
       }
+      
+      // IMPORTANT: Also resolve pending commands for chunk responses
+      if (serial.pendingCommand && response.state === 'RECEIVING') {
+        const handler = serial.pendingCommand;
+        serial.pendingCommand = null;
+        handler(response); // Treat PROGRESS as successful chunk response
+      }
     } else if (serial.pendingCommand) {
       // Handle command responses
       const handler = serial.pendingCommand;
