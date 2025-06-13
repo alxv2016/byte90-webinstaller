@@ -379,7 +379,12 @@ const serial = {
       // Handle progress updates
       const percent = response.progress || 0;
       const message = response.message || `${percent}%`;
+      
+      console.log('Progress update received:', percent, message);
       utils.updateProgress(percent, message);
+      
+      // Force show progress container
+      elements.progressContainer.style.display = 'block';
       
       if (response.completed) {
         updateInProgress = false;
@@ -394,6 +399,7 @@ const serial = {
       
       // IMPORTANT: Also resolve pending commands for chunk responses
       if (serial.pendingCommand && response.state === 'RECEIVING') {
+        console.log('Resolving pending command with progress response');
         const handler = serial.pendingCommand;
         serial.pendingCommand = null;
         handler(response); // Treat PROGRESS as successful chunk response
@@ -477,6 +483,8 @@ const updater = {
       }
 
       utils.updateProgress(0, 'Uploading firmware...');
+      // Force show the progress bar
+      elements.progressContainer.style.display = 'block';
 
       // Read file and send in chunks with retry logic
       const arrayBuffer = await file.arrayBuffer();
@@ -527,6 +535,10 @@ const updater = {
           const progress = ((i + 1) / totalChunks) * 90; // Reserve 10% for finalization
           const eta = updater.calculateETA(i + 1, totalChunks, Date.now());
           utils.updateProgress(progress, `${(i + 1).toLocaleString()}/${totalChunks.toLocaleString()} chunks (${Math.round(progress)}%) ${eta}`);
+          
+          // Force show progress bar
+          elements.progressContainer.style.display = 'block';
+          console.log(`Manual progress update: ${progress}% (${i + 1}/${totalChunks})`);
         }
         
         // Shorter delay with higher baud rate
