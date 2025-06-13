@@ -359,6 +359,7 @@ const serial = {
 };
 
 // Update functions
+// Enhanced version with status checking
 const updater = {
   async startUpdate() {
     const file = elements.firmwareFile?.files[0];
@@ -374,32 +375,53 @@ const updater = {
       return;
     }
 
-    // Validate file type based on selection
-    const expectedFilename = updateType === 'firmware' ? 'byte90.bin' : 'byte90animations.bin';
-    if (!file.name.includes(updateType === 'firmware' ? 'byte90' : 'byte90animations')) {
-      utils.showStatus(elements.updateStatus, `Please select the correct file (${expectedFilename})`, 'error');
-      return;
-    }
-
     try {
       updateInProgress = true;
       ui.updateUpdateState(true);
       utils.hideStatus(elements.updateStatus);
-      utils.updateProgress(0, 'Initializing update...');
+      utils.updateProgress(0, 'Checking device status...');
+
+      // Check current status first
+      try {
+        const statusResponse = await serial.sendCommand(SERIAL_COMMANDS.GET_STATUS);
+        console.log('Device status:', statusResponse);
+        
+        if (statusResponse && statusResponse.update_active) {
+          console.log('Device has active update, aborting...');
+          await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for abort
+        }
+      } catch (error) {
+        console.warn('Failed to get status, continuing with abort anyway:', error);
+      }
+
+      utils.updateProgress(1, 'Resetting device state...');
+
+      // Always abort any existing update to reset state
+      try {
+        await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
+        console.log('Device state reset');
+        // Give ESP32 time to process the abort
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        console.warn('Abort command failed (normal if no update was active):', error);
+      }
+
+      utils.updateProgress(3, 'Starting new update...');
 
       // Start update
       const startResponse = await serial.sendCommandWithRetry(
         SERIAL_COMMANDS.START_UPDATE, 
-        `${file.size},${updateType}`
+        `${file.size},${updateType}`,
+        2 // Only 2 retries for start command
       );
 
       if (!startResponse || !startResponse.success) {
         throw new Error(startResponse?.message || 'Failed to start update');
       }
 
+      // Rest of the update process...
       utils.updateProgress(5, 'Reading firmware file...');
-
-      // Read file and send in chunks
       const arrayBuffer = await file.arrayBuffer();
       const totalChunks = Math.ceil(arrayBuffer.byteLength / CHUNK_SIZE);
       
@@ -417,7 +439,7 @@ const updater = {
         if (i % 10 === 0) {
           const transferProgress = 10 + ((i / totalChunks) * 80);
           const elapsed = (performance.now() - startTime) / 1000;
-          const speed = bytesTransferred / elapsed;
+          const speed = bytesTransferred / elapsed || 0;
           const speedText = speed > 1024 ? 
             `${(speed / 1024).toFixed(1)} KB/s` : 
             `${speed.toFixed(0)} B/s`;
@@ -430,7 +452,8 @@ const updater = {
 
         const chunkResponse = await serial.sendCommandWithRetry(
           SERIAL_COMMANDS.SEND_CHUNK, 
-          base64Chunk
+          base64Chunk,
+          1 // Only 1 retry for chunks to avoid timeouts
         );
         
         if (!chunkResponse || !chunkResponse.success) {
@@ -446,7 +469,6 @@ const updater = {
 
       utils.updateProgress(95, 'Finalizing update...');
 
-      // Finish update
       const finishResponse = await serial.sendCommandWithRetry(SERIAL_COMMANDS.FINISH_UPDATE);
       
       if (!finishResponse || !finishResponse.success) {
@@ -461,18 +483,13 @@ const updater = {
       utils.showStatus(elements.updateStatus, `Update failed: ${error.message}`, 'error');
       updateInProgress = false;
       ui.updateUpdateState(false);
-    }
-  },
-
-  async abortUpdate() {
-    try {
-      await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
-      updateInProgress = false;
-      ui.updateUpdateState(false);
-      utils.resetProgress();
-      utils.showStatus(elements.updateStatus, 'Update aborted', 'warning');
-    } catch (error) {
-      console.error('Failed to abort update:', error);
+      
+      // Try to clean up
+      try {
+        await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
+      } catch (abortError) {
+        console.warn('Failed to abort update after error:', abortError);
+      }
     }
   }
 };
