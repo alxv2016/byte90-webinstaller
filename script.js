@@ -15,8 +15,10 @@ const RESPONSE_PREFIXES = {
   PROGRESS: 'PROGRESS:'
 };
 
-const CHUNK_SIZE = 128; // Much smaller chunks for reliable transmission
-const COMMAND_TIMEOUT = 20000; // Increased timeout since we'll have more chunks
+const CHUNK_SIZE = 32; // Very small chunks for UART reliability
+const COMMAND_TIMEOUT = 10000; // 10 seconds per chunk
+const MAX_RETRIES = 3; // Retry failed chunks
+const PROGRESS_UPDATE_INTERVAL = 100; // Update progress every 100 chunks
 
 // Global state
 let serialPort = null;
@@ -402,6 +404,25 @@ const serial = {
 
 // Update functions
 const updater = {
+  startTime: null,
+
+  calculateETA(currentChunk, totalChunks, currentTime) {
+    if (!this.startTime) {
+      this.startTime = currentTime;
+      return '';
+    }
+
+    const elapsed = (currentTime - this.startTime) / 1000; // seconds
+    const rate = currentChunk / elapsed; // chunks per second
+    const remaining = totalChunks - currentChunk;
+    const eta = remaining / rate; // seconds
+
+    if (eta > 60) {
+      return `ETA: ${Math.round(eta / 60)}m`;
+    } else {
+      return `ETA: ${Math.round(eta)}s`;
+    }
+  },
   async startUpdate() {
     const file = elements.firmwareFile.files[0];
     const updateType = elements.updateType.value;
@@ -450,11 +471,14 @@ const updater = {
 
       utils.updateProgress(0, 'Uploading firmware...');
 
-      // Read file and send in chunks
+      // Read file and send in chunks with retry logic
       const arrayBuffer = await file.arrayBuffer();
       const totalChunks = Math.ceil(arrayBuffer.byteLength / CHUNK_SIZE);
       
       console.log(`Starting firmware upload: ${totalChunks} chunks of ${CHUNK_SIZE} bytes each`);
+      utils.showStatus(elements.updateStatus, `Preparing to send ${totalChunks.toLocaleString()} chunks...`, 'warning');
+      
+      let successfulChunks = 0;
       
       for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE;
@@ -462,26 +486,48 @@ const updater = {
         const chunk = arrayBuffer.slice(start, end);
         const base64Chunk = utils.arrayBufferToBase64(chunk);
 
-        console.log(`Sending chunk ${i + 1}/${totalChunks}, size: ${chunk.byteLength} bytes, base64 length: ${base64Chunk.length}`);
+        let chunkSuccess = false;
+        let retryCount = 0;
 
-        try {
-          const chunkResponse = await serial.sendCommand(SERIAL_COMMANDS.SEND_CHUNK, base64Chunk);
-          
-          if (!chunkResponse || !chunkResponse.success) {
-            throw new Error(chunkResponse?.message || `Failed to send chunk ${i + 1}`);
+        // Retry logic for each chunk
+        while (!chunkSuccess && retryCount < MAX_RETRIES) {
+          try {
+            if (retryCount > 0) {
+              console.log(`Retrying chunk ${i + 1}/${totalChunks}, attempt ${retryCount + 1}`);
+            }
+
+            const chunkResponse = await serial.sendCommand(SERIAL_COMMANDS.SEND_CHUNK, base64Chunk);
+            
+            if (chunkResponse && chunkResponse.success) {
+              chunkSuccess = true;
+              successfulChunks++;
+            } else {
+              throw new Error(chunkResponse?.message || 'Chunk rejected by device');
+            }
+          } catch (chunkError) {
+            retryCount++;
+            if (retryCount >= MAX_RETRIES) {
+              throw new Error(`Chunk ${i + 1} failed after ${MAX_RETRIES} attempts: ${chunkError.message}`);
+            }
+            
+            // Wait longer between retries
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
-        } catch (chunkError) {
-          console.error(`Chunk ${i + 1} failed:`, chunkError);
-          throw new Error(`Chunk ${i + 1} failed: ${chunkError.message}`);
         }
 
-        // Update progress based on chunks sent
-        const progress = ((i + 1) / totalChunks) * 90; // Reserve 10% for finalization
-        utils.updateProgress(progress, `Chunk ${i + 1}/${totalChunks} (${Math.round(progress)}%)`);
+        // Update progress less frequently to avoid spam
+        if (i % PROGRESS_UPDATE_INTERVAL === 0 || i === totalChunks - 1) {
+          const progress = ((i + 1) / totalChunks) * 90; // Reserve 10% for finalization
+          const eta = updater.calculateETA(i + 1, totalChunks, Date.now());
+          utils.updateProgress(progress, `${(i + 1).toLocaleString()}/${totalChunks.toLocaleString()} chunks (${Math.round(progress)}%) ${eta}`);
+        }
         
-        // Small delay between chunks to prevent overwhelming the device
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Very short delay between chunks
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
+      
+      console.log(`Successfully sent ${successfulChunks}/${totalChunks} chunks`);
+      utils.updateProgress(95, 'Finalizing update...');
 
       utils.updateProgress(95, 'Finalizing update...');
 
