@@ -21,9 +21,9 @@ const RESPONSE_PREFIXES = {
 
 // Optimized settings for speed and reliability
 const CHUNK_SIZE = 256; // 256 bytes chunks for optimal performance
-const COMMAND_TIMEOUT = 3000;
+const COMMAND_TIMEOUT = 10000;
 const CHUNK_TIMEOUT = 8000; // Longer timeout for larger chunks
-const MAX_RETRIES = 1;
+const MAX_RETRIES = 2;
 
 // Global state
 let serialPort = null;
@@ -155,7 +155,7 @@ const serial = {
       serialPort = await navigator.serial.requestPort();
       
       await serialPort.open({ 
-        baudRate: 460800,
+        baudRate: 230400,
         dataBits: 8,
         stopBits: 1,
         parity: 'none',
