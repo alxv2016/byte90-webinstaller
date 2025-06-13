@@ -20,7 +20,7 @@ const RESPONSE_PREFIXES = {
 };
 
 // Optimized settings for speed and reliability
-const CHUNK_SIZE = 2048; // 2KB chunks for optimal performance
+const CHUNK_SIZE = 256; // 256 bytes chunks for optimal performance
 const COMMAND_TIMEOUT = 3000;
 const CHUNK_TIMEOUT = 8000; // Longer timeout for larger chunks
 const MAX_RETRIES = 1;
