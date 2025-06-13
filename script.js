@@ -1,22 +1,22 @@
 // Serial communication constants (matching your C++ code)
 const SERIAL_COMMANDS = {
-  GET_INFO: "GET_INFO",
-  GET_STATUS: "GET_STATUS",
-  START_UPDATE: "START_UPDATE",
-  SEND_CHUNK: "SEND_CHUNK",
-  FINISH_UPDATE: "FINISH_UPDATE",
-  ABORT_UPDATE: "ABORT_UPDATE",
-  RESTART: "RESTART",
-  ROLLBACK: "ROLLBACK",
-  GET_PARTITION_INFO: "GET_PARTITION_INFO",
-  GET_STORAGE_INFO: "GET_STORAGE_INFO",
-  VALIDATE_FIRMWARE: "VALIDATE_FIRMWARE",
+  GET_INFO: 'GET_INFO',
+  GET_STATUS: 'GET_STATUS',
+  START_UPDATE: 'START_UPDATE',
+  SEND_CHUNK: 'SEND_CHUNK',
+  FINISH_UPDATE: 'FINISH_UPDATE',
+  ABORT_UPDATE: 'ABORT_UPDATE',
+  RESTART: 'RESTART',
+  ROLLBACK: 'ROLLBACK',
+  GET_PARTITION_INFO: 'GET_PARTITION_INFO',
+  GET_STORAGE_INFO: 'GET_STORAGE_INFO',
+  VALIDATE_FIRMWARE: 'VALIDATE_FIRMWARE'
 };
 
 const RESPONSE_PREFIXES = {
-  OK: "OK:",
-  ERROR: "ERROR:",
-  PROGRESS: "PROGRESS:",
+  OK: 'OK:',
+  ERROR: 'ERROR:',
+  PROGRESS: 'PROGRESS:'
 };
 
 // Optimized settings for speed and reliability
@@ -48,85 +48,58 @@ function safeGetElement(id) {
 // Initialize DOM elements safely
 function initializeElements() {
   const elementIds = [
-    "connectBtn",
-    "disconnectBtn",
-    "connectionStatus",
-    "deviceInfo",
-    "updateSection",
-    "updateType",
-    "firmwareFile",
-    "uploadBtn",
-    "abortBtn",
-    "progressContainer",
-    "uploadProgress",
-    "progressText",
-    "updateStatus",
-    "compatibilityStatus",
-    "serialSupport",
-    "firmwareVersion",
-    "chipModel",
-    "currentMode",
-    "freeHeap",
+    'connectBtn', 'disconnectBtn', 'connectionStatus', 'deviceInfo',
+    'updateSection', 'updateType', 'firmwareFile', 'uploadBtn', 'abortBtn',
+    'progressContainer', 'uploadProgress', 'progressText', 'updateStatus',
+    'compatibilityStatus', 'serialSupport', 'firmwareVersion', 'chipModel',
+    'currentMode', 'freeHeap'
   ];
 
-  elementIds.forEach((id) => {
+  elementIds.forEach(id => {
     elements[id] = safeGetElement(id);
   });
 
-  const criticalElements = [
-    "connectBtn",
-    "disconnectBtn",
-    "uploadBtn",
-    "abortBtn",
-  ];
-  const missingCritical = criticalElements.filter((id) => !elements[id]);
-
+  const criticalElements = ['connectBtn', 'disconnectBtn', 'uploadBtn', 'abortBtn'];
+  const missingCritical = criticalElements.filter(id => !elements[id]);
+  
   if (missingCritical.length > 0) {
-    console.error("Critical elements missing:", missingCritical);
+    console.error('Critical elements missing:', missingCritical);
     return false;
   }
-
+  
   return true;
 }
 
 // Utility functions
 const utils = {
-  showStatus(element, message, type = "info") {
+  showStatus(element, message, type = 'info') {
     if (!element) return;
-
+    
     element.textContent = message;
-    element.classList.remove(
-      "status-success",
-      "status-warning",
-      "status-danger"
-    );
-
+    element.classList.remove('status-success', 'status-warning', 'status-danger');
+    
     const typeMap = {
-      success: "status-success",
-      warning: "status-warning",
-      error: "status-danger",
-      danger: "status-danger",
+      success: 'status-success',
+      warning: 'status-warning',
+      error: 'status-danger',
+      danger: 'status-danger'
     };
 
     if (typeMap[type]) {
       element.classList.add(typeMap[type]);
     }
 
-    element.style.display = "block";
+    element.style.display = 'block';
   },
 
   hideStatus(element) {
     if (!element) return;
-
-    element.style.display = "none";
-    element.classList.remove(
-      "status-success",
-      "status-warning",
-      "status-danger"
-    );
+    
+    element.style.display = 'none';
+    element.classList.remove('status-success', 'status-warning', 'status-danger');
   },
 
-  updateProgress(percent, message = "") {
+  updateProgress(percent, message = '') {
     if (elements.uploadProgress) {
       elements.uploadProgress.value = percent;
     }
@@ -134,7 +107,7 @@ const utils = {
       elements.progressText.textContent = message || `${Math.round(percent)}%`;
     }
     if (elements.progressContainer) {
-      elements.progressContainer.style.display = "block";
+      elements.progressContainer.style.display = 'block';
     }
   },
 
@@ -143,84 +116,50 @@ const utils = {
       elements.uploadProgress.value = 0;
     }
     if (elements.progressText) {
-      elements.progressText.textContent = "Ready to upload";
+      elements.progressText.textContent = 'Ready to upload';
     }
     if (elements.progressContainer) {
-      elements.progressContainer.style.display = "none";
+      elements.progressContainer.style.display = 'none';
     }
   },
 
   formatBytes(bytes) {
-    if (bytes === 0) return "0 Bytes";
+    if (bytes === 0) return '0 Bytes';
     const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   },
 
   arrayBufferToBase64(buffer) {
-    // More robust base64 encoding
+    let binary = '';
     const bytes = new Uint8Array(buffer);
-    let binary = "";
-
-    // Process in smaller chunks to avoid call stack issues
-    const chunkSize = 8192;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      const chunk = bytes.slice(i, i + chunkSize);
-      binary += String.fromCharCode(...chunk);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
     }
-
-    const base64 = btoa(binary);
-
-    // Validate the encoding by checking length
-    const expectedLength = Math.ceil((bytes.length * 4) / 3);
-    const actualLength = base64.length;
-
-    // Allow for padding difference
-    if (Math.abs(actualLength - expectedLength) > 4) {
-      console.error(
-        `Base64 encoding length mismatch: expected ~${expectedLength}, got ${actualLength}, source ${bytes.length} bytes`
-      );
-    }
-
-    return base64;
-  },
-
-  // Add a validation function
-  validateBase64Chunk(originalSize, base64String) {
-    // Calculate expected base64 size (with padding)
-    const expectedBase64Size = Math.ceil((originalSize * 4) / 3);
-    const actualSize = base64String.length;
-
-    // Allow for up to 4 bytes difference due to padding
-    if (Math.abs(actualSize - expectedBase64Size) > 4) {
-      console.warn(
-        `Base64 size validation failed: ${originalSize} bytes -> ${actualSize} base64 chars (expected ~${expectedBase64Size})`
-      );
-      return false;
-    }
-    return true;
-  },
+    return btoa(binary);
+  }
 };
 
 // Serial communication functions
 const serial = {
   pendingCommand: null,
-
+  
   async connect() {
     try {
       if (!navigator.serial) {
-        throw new Error("Web Serial API not supported");
+        throw new Error('Web Serial API not supported');
       }
 
       serialPort = await navigator.serial.requestPort();
-
-      await serialPort.open({
+      
+      await serialPort.open({ 
         baudRate: 921600,
         dataBits: 8,
         stopBits: 1,
-        parity: "none",
-        flowControl: "none",
+        parity: 'none',
+        flowControl: 'none'
       });
 
       reader = serialPort.readable.getReader();
@@ -238,23 +177,15 @@ const serial = {
           ui.updateDeviceInfo(info);
         }
       } catch (error) {
-        console.warn("Failed to get device info:", error);
+        console.warn('Failed to get device info:', error);
       }
 
-      utils.showStatus(
-        elements.connectionStatus,
-        "Device connected successfully",
-        "success"
-      );
-
+      utils.showStatus(elements.connectionStatus, 'Device connected successfully', 'success');
+      
       return true;
     } catch (error) {
-      console.error("Connection failed:", error);
-      utils.showStatus(
-        elements.connectionStatus,
-        `Connection failed: ${error.message}`,
-        "error"
-      );
+      console.error('Connection failed:', error);
+      utils.showStatus(elements.connectionStatus, `Connection failed: ${error.message}`, 'error');
       return false;
     }
   },
@@ -280,31 +211,26 @@ const serial = {
       isConnected = false;
       deviceInfo = null;
       ui.updateConnectionState(false);
-      utils.showStatus(
-        elements.connectionStatus,
-        "Device disconnected",
-        "warning"
-      );
-
+      utils.showStatus(elements.connectionStatus, 'Device disconnected', 'warning');
+      
       return true;
     } catch (error) {
-      console.error("Disconnect failed:", error);
+      console.error('Disconnect failed:', error);
       return false;
     }
   },
 
-  async sendCommand(command, data = "", customTimeout = COMMAND_TIMEOUT) {
+  async sendCommand(command, data = '', customTimeout = COMMAND_TIMEOUT) {
     if (!writer) {
-      throw new Error("Not connected to device");
+      throw new Error('Not connected to device');
     }
 
     return new Promise((resolve, reject) => {
       const commandString = data ? `${command}:${data}\n` : `${command}\n`;
       const encoder = new TextEncoder();
-
-      const timeoutMs =
-        command === SERIAL_COMMANDS.SEND_CHUNK ? CHUNK_TIMEOUT : customTimeout;
-
+      
+      const timeoutMs = command === SERIAL_COMMANDS.SEND_CHUNK ? CHUNK_TIMEOUT : customTimeout;
+      
       const timeout = setTimeout(() => {
         console.error(`Command timeout (${timeoutMs}ms): ${command}`);
         serial.pendingCommand = null;
@@ -321,16 +247,16 @@ const serial = {
         }
       };
 
-      writer.write(encoder.encode(commandString)).catch((error) => {
+      writer.write(encoder.encode(commandString)).catch(error => {
         clearTimeout(timeout);
         serial.pendingCommand = null;
-        console.error("Write failed:", error);
+        console.error('Write failed:', error);
         reject(error);
       });
     });
   },
 
-  async sendCommandWithRetry(command, data = "", retries = MAX_RETRIES) {
+  async sendCommandWithRetry(command, data = '', retries = MAX_RETRIES) {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         if (command === SERIAL_COMMANDS.SEND_CHUNK) {
@@ -338,15 +264,15 @@ const serial = {
         } else {
           console.log(`Sending command: ${command} (attempt ${attempt})`);
         }
-
+        
         const result = await this.sendCommand(command, data);
-
+        
         if (command === SERIAL_COMMANDS.SEND_CHUNK) {
           console.log(`Chunk sent successfully`);
         } else {
           console.log(`Command ${command} succeeded:`, result);
         }
-
+        
         return result;
       } catch (error) {
         console.warn(`Command ${command} attempt ${attempt} failed:`, error);
@@ -354,25 +280,25 @@ const serial = {
           throw error;
         }
         const retryDelay = command === SERIAL_COMMANDS.SEND_CHUNK ? 1000 : 200;
-        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
     }
   },
 
   async startListening() {
     const decoder = new TextDecoder();
-    let buffer = "";
+    let buffer = '';
 
     try {
       while (reader && isConnected) {
         const { value, done } = await reader.read();
-
+        
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-
-        let lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+        
+        let lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
           if (line.trim()) {
@@ -381,14 +307,14 @@ const serial = {
         }
       }
     } catch (error) {
-      if (error.name !== "AbortError") {
-        console.error("Serial reading error:", error);
+      if (error.name !== 'AbortError') {
+        console.error('Serial reading error:', error);
       }
     }
   },
 
   handleResponse(line) {
-    console.log("Received:", line);
+    console.log('Received:', line);
 
     let response = null;
     let isProgress = false;
@@ -397,9 +323,9 @@ const serial = {
       const jsonStr = line.substring(RESPONSE_PREFIXES.OK.length);
       try {
         response = JSON.parse(jsonStr);
-        console.log("Parsed OK response:", response);
+        console.log('Parsed OK response:', response);
       } catch (e) {
-        console.error("Failed to parse OK response:", jsonStr, e);
+        console.error('Failed to parse OK response:', jsonStr, e);
         return;
       }
     } else if (line.startsWith(RESPONSE_PREFIXES.ERROR)) {
@@ -407,9 +333,9 @@ const serial = {
       try {
         response = JSON.parse(jsonStr);
         response.success = false;
-        console.log("Parsed ERROR response:", response);
+        console.log('Parsed ERROR response:', response);
       } catch (e) {
-        console.error("Failed to parse ERROR response:", jsonStr, e);
+        console.error('Failed to parse ERROR response:', jsonStr, e);
         return;
       }
     } else if (line.startsWith(RESPONSE_PREFIXES.PROGRESS)) {
@@ -417,9 +343,9 @@ const serial = {
       try {
         response = JSON.parse(jsonStr);
         isProgress = true;
-        console.log("Parsed PROGRESS response:", response);
+        console.log('Parsed PROGRESS response:', response);
       } catch (e) {
-        console.error("Failed to parse PROGRESS response:", jsonStr, e);
+        console.error('Failed to parse PROGRESS response:', jsonStr, e);
         return;
       }
     } else {
@@ -430,22 +356,14 @@ const serial = {
       const percent = response.progress || 0;
       const message = response.message || `${percent}%`;
       utils.updateProgress(percent, message);
-
+      
       if (response.completed) {
         updateInProgress = false;
         if (response.success) {
-          utils.showStatus(
-            elements.updateStatus,
-            "Update completed successfully! Device will restart.",
-            "success"
-          );
+          utils.showStatus(elements.updateStatus, 'Update completed successfully! Device will restart.', 'success');
           ui.updateUpdateState(false);
         } else {
-          utils.showStatus(
-            elements.updateStatus,
-            response.message || "Update failed",
-            "error"
-          );
+          utils.showStatus(elements.updateStatus, response.message || 'Update failed', 'error');
           ui.updateUpdateState(false);
         }
       }
@@ -454,13 +372,12 @@ const serial = {
       serial.pendingCommand = null;
       handler(response);
     } else {
-      console.warn("Received response but no pending command:", response);
+      console.warn('Received response but no pending command:', response);
     }
-  },
+  }
 };
 
 // Update functions
-// Complete updater object with enhanced debugging
 const updater = {
   async startUpdate() {
     const file = elements.firmwareFile?.files[0];
@@ -488,7 +405,6 @@ const updater = {
       utils.hideStatus(elements.updateStatus);
       utils.updateProgress(0, 'Checking device status...');
 
-      // Check and reset device state
       try {
         console.log('Getting device status...');
         const statusResponse = await serial.sendCommand(SERIAL_COMMANDS.GET_STATUS);
@@ -516,7 +432,6 @@ const updater = {
 
       utils.updateProgress(3, 'Starting new update...');
 
-      // Start update
       console.log(`Starting update: ${file.size} bytes, type: ${updateType}`);
       
       const startResponse = await serial.sendCommandWithRetry(
@@ -538,24 +453,11 @@ const updater = {
       console.log('Update started successfully, beginning file transfer...');
       utils.updateProgress(5, 'Reading firmware file...');
       
-      // Read file and prepare for chunked transfer
       const arrayBuffer = await file.arrayBuffer();
       const totalChunks = Math.ceil(arrayBuffer.byteLength / CHUNK_SIZE);
       
-      console.log(`📁 FILE ANALYSIS:`);
-      console.log(`File size: ${arrayBuffer.byteLength} bytes (${utils.formatBytes(arrayBuffer.byteLength)})`);
-      console.log(`Chunk size: ${CHUNK_SIZE} bytes`);
-      console.log(`Total chunks: ${totalChunks}`);
-      console.log(`Last chunk size: ${arrayBuffer.byteLength - ((totalChunks - 1) * CHUNK_SIZE)} bytes`);
-      
+      console.log(`File read: ${arrayBuffer.byteLength} bytes in ${totalChunks} chunks of ${CHUNK_SIZE} bytes each`);
       utils.updateProgress(10, 'Starting upload...');
-
-      // =====================================================================
-      // ENHANCED CHUNK TRANSFER WITH COMPREHENSIVE DEBUGGING
-      // =====================================================================
-      
-      console.log(`\n🚀 Starting transfer: ${arrayBuffer.byteLength} bytes in ${totalChunks} chunks`);
-      console.log(`Expected final total: ${totalChunks * CHUNK_SIZE} (${totalChunks * CHUNK_SIZE - arrayBuffer.byteLength} bytes over file size)`);
 
       const startTime = performance.now();
       let bytesTransferred = 0;
@@ -568,34 +470,7 @@ const updater = {
         const chunk = arrayBuffer.slice(start, end);
         const base64Chunk = utils.arrayBufferToBase64(chunk);
 
-        // DETAILED DEBUG for chunks near the end
-        if (i >= totalChunks - 10) {
-          console.log(`\n🔍 CHUNK ${i + 1}/${totalChunks} ANALYSIS:`);
-          console.log(`  📍 Range: ${start} to ${end} (size: ${chunk.byteLength})`);
-          console.log(`  📊 Base64 length: ${base64Chunk.length} chars`);
-          console.log(`  🎯 Running total: ${end} / ${arrayBuffer.byteLength} bytes`);
-          console.log(`  ⏱️  Progress: ${((i + 1) / totalChunks * 100).toFixed(1)}%`);
-          
-          // Validate base64 encoding
-          const expectedBase64Length = Math.ceil(chunk.byteLength * 4 / 3);
-          const actualBase64Length = base64Chunk.length;
-          const base64Diff = Math.abs(actualBase64Length - expectedBase64Length);
-          
-          if (base64Diff > 4) {
-            console.error(`❌ Base64 encoding error for chunk ${i + 1}:`);
-            console.error(`   Expected: ~${expectedBase64Length} chars`);
-            console.error(`   Actual: ${actualBase64Length} chars`);
-            console.error(`   Difference: ${base64Diff} chars`);
-          } else {
-            console.log(`  ✅ Base64 encoding OK: ${actualBase64Length} chars (expected ~${expectedBase64Length})`);
-          }
-
-          // Show first and last few characters of base64
-          console.log(`  📝 Base64 preview: "${base64Chunk.substring(0, 20)}...${base64Chunk.substring(base64Chunk.length - 20)}"`);
-        }
-
-        // Progress updates
-        if (i % 20 === 0 || i === totalChunks - 1 || i >= totalChunks - 5) {
+        if (i % 20 === 0 || i === totalChunks - 1) {
           const transferProgress = 10 + ((i / totalChunks) * 80);
           const elapsed = (performance.now() - startTime) / 1000;
           const speed = bytesTransferred / elapsed || 0;
@@ -605,109 +480,48 @@ const updater = {
           
           utils.updateProgress(
             transferProgress, 
-            `Uploading: ${Math.round(transferProgress)}% (${speedText}) - Chunk ${i + 1}/${totalChunks}`
+            `Uploading: ${Math.round(transferProgress)}% (${speedText})`
           );
           
-          console.log(`📊 Progress Update: Chunk ${i + 1}/${totalChunks} (${transferProgress.toFixed(1)}%) - ${speedText} - ${chunk.byteLength} bytes`);
+          if (i % 50 === 0) {
+            console.log(`Chunk ${i}/${totalChunks} (${transferProgress.toFixed(1)}%) - ${speedText}`);
+          }
         }
 
         try {
-          console.log(`📤 Sending chunk ${i + 1}/${totalChunks} (${chunk.byteLength} bytes -> ${base64Chunk.length} base64 chars)`);
-          
-          const chunkStartTime = performance.now();
           const chunkResponse = await serial.sendCommand(
             SERIAL_COMMANDS.SEND_CHUNK, 
             base64Chunk
           );
-          const chunkTime = performance.now() - chunkStartTime;
-          
-          // Debug response for chunks near the end
-          if (i >= totalChunks - 5) {
-            console.log(`📨 Chunk ${i + 1} response (${chunkTime.toFixed(2)}ms):`, chunkResponse);
-          }
           
           if (!chunkResponse || !chunkResponse.success) {
             consecutiveErrors++;
-            console.error(`❌ Chunk ${i + 1} rejected:`, chunkResponse);
             throw new Error(chunkResponse?.message || `Chunk ${i + 1} rejected by device`);
           }
 
           consecutiveErrors = 0;
           
-          // Update bytes transferred tracking
-          const previousBytes = bytesTransferred;
-          bytesTransferred = end;
-          const bytesAdded = bytesTransferred - previousBytes;
-          
-          // Debug byte tracking for chunks near the end
-          if (i >= totalChunks - 5) {
-            console.log(`📈 Byte tracking: ${previousBytes} -> ${bytesTransferred} (+${bytesAdded} bytes)`);
-            console.log(`📋 Chunk ${i + 1} summary: ${chunk.byteLength} bytes sent, ${bytesAdded} bytes credited`);
-            
-            if (bytesAdded !== chunk.byteLength) {
-              console.warn(`⚠️  Byte mismatch: sent ${chunk.byteLength}, credited ${bytesAdded}`);
-            }
-          }
-          
         } catch (chunkError) {
           consecutiveErrors++;
-          console.error(`❌ Chunk ${i + 1} failed (attempt ${consecutiveErrors}):`, chunkError);
+          console.error(`Chunk ${i + 1} failed (${consecutiveErrors} consecutive errors):`, chunkError);
           
           if (consecutiveErrors >= maxConsecutiveErrors) {
             throw new Error(`Too many consecutive errors (${consecutiveErrors}). Last error: ${chunkError.message}`);
           }
           
-          console.log(`🔄 Retrying chunk ${i + 1}...`);
-          i--; // Retry the same chunk
+          i--;
           continue;
         }
+
+        bytesTransferred = end;
       }
-
-      // =====================================================================
-      // FINAL VALIDATION AND SUMMARY
-      // =====================================================================
-      
-      console.log(`\n🏁 TRANSFER COMPLETION ANALYSIS:`);
-      console.log(`📁 Original file size: ${arrayBuffer.byteLength} bytes`);
-      console.log(`📊 Bytes transferred: ${bytesTransferred} bytes`);
-      console.log(`📐 Difference: ${bytesTransferred - arrayBuffer.byteLength} bytes`);
-      console.log(`📦 Total chunks sent: ${totalChunks}`);
-      console.log(`⏱️  Transfer time: ${((performance.now() - startTime) / 1000).toFixed(2)} seconds`);
-
-      // Critical validation
-      if (bytesTransferred !== arrayBuffer.byteLength) {
-        console.error(`\n❌ CRITICAL TRANSFER ERROR:`);
-        console.error(`Expected: ${arrayBuffer.byteLength} bytes`);
-        console.error(`Actual: ${bytesTransferred} bytes`);
-        console.error(`Missing: ${arrayBuffer.byteLength - bytesTransferred} bytes`);
-        
-        // Analyze the last chunk in detail
-        const lastChunkIndex = totalChunks - 1;
-        const lastChunkStart = lastChunkIndex * CHUNK_SIZE;
-        const lastChunkEnd = Math.min(lastChunkStart + CHUNK_SIZE, arrayBuffer.byteLength);
-        const lastChunkSize = lastChunkEnd - lastChunkStart;
-        
-        console.error(`\n🔍 LAST CHUNK ANALYSIS:`);
-        console.error(`Chunk ${totalChunks}: start=${lastChunkStart}, end=${lastChunkEnd}, size=${lastChunkSize}`);
-        console.error(`Expected final position: ${arrayBuffer.byteLength}`);
-        console.error(`Actual final position: ${bytesTransferred}`);
-        
-        throw new Error(`Transfer incomplete: ${bytesTransferred} of ${arrayBuffer.byteLength} bytes transferred (missing ${arrayBuffer.byteLength - bytesTransferred} bytes)`);
-      }
-
-      console.log(`✅ Transfer validation PASSED: All ${bytesTransferred} bytes confirmed`);
 
       const totalTime = (performance.now() - startTime) / 1000;
       const avgSpeed = arrayBuffer.byteLength / totalTime;
-      console.log(`🎉 Transfer completed successfully: ${utils.formatBytes(arrayBuffer.byteLength)} in ${totalTime.toFixed(2)}s (${utils.formatBytes(avgSpeed)}/s)`);
-
-      // =====================================================================
-      // FINALIZE UPDATE
-      // =====================================================================
+      console.log(`Transfer completed: ${utils.formatBytes(arrayBuffer.byteLength)} in ${totalTime.toFixed(2)}s (${utils.formatBytes(avgSpeed)}/s)`);
 
       utils.updateProgress(95, 'Finalizing update...');
 
-      console.log(`\n🔒 Finalizing update...`);
       const finishResponse = await serial.sendCommandWithRetry(SERIAL_COMMANDS.FINISH_UPDATE);
       
       if (!finishResponse || !finishResponse.success) {
@@ -719,17 +533,14 @@ const updater = {
       updateInProgress = false;
       ui.updateUpdateState(false);
 
-      console.log(`🎊 UPDATE COMPLETED SUCCESSFULLY!`);
-
     } catch (error) {
-      console.error(`💥 Update failed:`, error);
+      console.error('Update failed:', error);
       utils.showStatus(elements.updateStatus, `Update failed: ${error.message}`, 'error');
       updateInProgress = false;
       ui.updateUpdateState(false);
       
-      // Cleanup
       try {
-        console.log('🧹 Cleaning up after error...');
+        console.log('Cleaning up after error...');
         await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
       } catch (abortError) {
         console.warn('Failed to abort update after error:', abortError);
@@ -754,18 +565,15 @@ const updater = {
 const ui = {
   updateConnectionState(connected) {
     if (connected) {
-      if (elements.connectBtn) elements.connectBtn.style.display = "none";
-      if (elements.disconnectBtn)
-        elements.disconnectBtn.style.display = "inline-flex";
-      if (elements.deviceInfo) elements.deviceInfo.style.display = "block";
-      if (elements.updateSection)
-        elements.updateSection.style.display = "block";
+      if (elements.connectBtn) elements.connectBtn.style.display = 'none';
+      if (elements.disconnectBtn) elements.disconnectBtn.style.display = 'inline-flex';
+      if (elements.deviceInfo) elements.deviceInfo.style.display = 'block';
+      if (elements.updateSection) elements.updateSection.style.display = 'block';
     } else {
-      if (elements.connectBtn)
-        elements.connectBtn.style.display = "inline-flex";
-      if (elements.disconnectBtn) elements.disconnectBtn.style.display = "none";
-      if (elements.deviceInfo) elements.deviceInfo.style.display = "none";
-      if (elements.updateSection) elements.updateSection.style.display = "none";
+      if (elements.connectBtn) elements.connectBtn.style.display = 'inline-flex';
+      if (elements.disconnectBtn) elements.disconnectBtn.style.display = 'none';
+      if (elements.deviceInfo) elements.deviceInfo.style.display = 'none';
+      if (elements.updateSection) elements.updateSection.style.display = 'none';
       if (elements.uploadBtn) elements.uploadBtn.disabled = true;
       this.clearDeviceInfo();
     }
@@ -773,125 +581,107 @@ const ui = {
 
   updateDeviceInfo(info) {
     if (info) {
-      if (elements.firmwareVersion)
-        elements.firmwareVersion.textContent = info.firmware_version || "-";
-      if (elements.chipModel)
-        elements.chipModel.textContent = info.chip_model || "-";
-      if (elements.currentMode)
-        elements.currentMode.textContent = info.current_mode || "-";
-      if (elements.freeHeap)
-        elements.freeHeap.textContent = info.free_heap
-          ? utils.formatBytes(info.free_heap)
-          : "-";
+      if (elements.firmwareVersion) elements.firmwareVersion.textContent = info.firmware_version || '-';
+      if (elements.chipModel) elements.chipModel.textContent = info.chip_model || '-';
+      if (elements.currentMode) elements.currentMode.textContent = info.current_mode || '-';
+      if (elements.freeHeap) elements.freeHeap.textContent = info.free_heap ? utils.formatBytes(info.free_heap) : '-';
     }
   },
 
   clearDeviceInfo() {
-    if (elements.firmwareVersion) elements.firmwareVersion.textContent = "-";
-    if (elements.chipModel) elements.chipModel.textContent = "-";
-    if (elements.currentMode) elements.currentMode.textContent = "-";
-    if (elements.freeHeap) elements.freeHeap.textContent = "-";
+    if (elements.firmwareVersion) elements.firmwareVersion.textContent = '-';
+    if (elements.chipModel) elements.chipModel.textContent = '-';
+    if (elements.currentMode) elements.currentMode.textContent = '-';
+    if (elements.freeHeap) elements.freeHeap.textContent = '-';
   },
 
   updateUpdateState(inProgress) {
     if (inProgress) {
-      if (elements.uploadBtn) elements.uploadBtn.style.display = "none";
-      if (elements.abortBtn) elements.abortBtn.style.display = "inline-flex";
+      if (elements.uploadBtn) elements.uploadBtn.style.display = 'none';
+      if (elements.abortBtn) elements.abortBtn.style.display = 'inline-flex';
       if (elements.firmwareFile) elements.firmwareFile.disabled = true;
       if (elements.updateType) elements.updateType.disabled = true;
     } else {
-      if (elements.uploadBtn) elements.uploadBtn.style.display = "inline-flex";
-      if (elements.abortBtn) elements.abortBtn.style.display = "none";
+      if (elements.uploadBtn) elements.uploadBtn.style.display = 'inline-flex';
+      if (elements.abortBtn) elements.abortBtn.style.display = 'none';
       if (elements.firmwareFile) elements.firmwareFile.disabled = false;
       if (elements.updateType) elements.updateType.disabled = false;
     }
   },
 
   checkCompatibility() {
-    if ("serial" in navigator) {
+    if ('serial' in navigator) {
       if (elements.serialSupport) {
-        elements.serialSupport.textContent = "Supported";
-        elements.serialSupport.className = "status-badge supported";
+        elements.serialSupport.textContent = 'Supported';
+        elements.serialSupport.className = 'status-badge supported';
       }
     } else {
       if (elements.serialSupport) {
-        elements.serialSupport.textContent = "Not Supported";
-        elements.serialSupport.className = "status-badge not-supported";
+        elements.serialSupport.textContent = 'Not Supported';
+        elements.serialSupport.className = 'status-badge not-supported';
       }
-
-      utils.showStatus(
-        elements.connectionStatus,
-        "Web Serial API is not supported in this browser. Please use Chrome 89+, Edge 89+, or Opera 75+.",
-        "error"
-      );
+      
+      utils.showStatus(elements.connectionStatus, 
+        'Web Serial API is not supported in this browser. Please use Chrome 89+, Edge 89+, or Opera 75+.', 
+        'error');
     }
-  },
+  }
 };
 
 // Event listeners
 function initializeEventListeners() {
   if (elements.connectBtn) {
-    elements.connectBtn.addEventListener("click", serial.connect);
+    elements.connectBtn.addEventListener('click', serial.connect);
   }
-
+  
   if (elements.disconnectBtn) {
-    elements.disconnectBtn.addEventListener("click", serial.disconnect);
+    elements.disconnectBtn.addEventListener('click', serial.disconnect);
   }
-
+  
   if (elements.uploadBtn) {
-    elements.uploadBtn.addEventListener("click", updater.startUpdate);
+    elements.uploadBtn.addEventListener('click', updater.startUpdate);
   }
-
+  
   if (elements.abortBtn) {
-    elements.abortBtn.addEventListener("click", updater.abortUpdate);
+    elements.abortBtn.addEventListener('click', updater.abortUpdate);
   }
 
   if (elements.firmwareFile) {
-    elements.firmwareFile.addEventListener("change", (e) => {
+    elements.firmwareFile.addEventListener('change', (e) => {
       if (elements.uploadBtn) {
-        elements.uploadBtn.disabled =
-          !e.target.files[0] || !isConnected || updateInProgress;
+        elements.uploadBtn.disabled = !e.target.files[0] || !isConnected || updateInProgress;
       }
     });
   }
 
-  document.addEventListener("visibilitychange", () => {
+  document.addEventListener('visibilitychange', () => {
     if (document.hidden && updateInProgress) {
-      console.warn("Page hidden during update - this may cause issues");
+      console.warn('Page hidden during update - this may cause issues');
     }
   });
 
-  window.addEventListener("beforeunload", (e) => {
+  window.addEventListener('beforeunload', (e) => {
     if (updateInProgress) {
       e.preventDefault();
-      e.returnValue =
-        "Firmware update in progress. Are you sure you want to leave?";
+      e.returnValue = 'Firmware update in progress. Are you sure you want to leave?';
     }
   });
 }
 
 // Error handling
-window.addEventListener("error", (event) => {
-  console.error("Global error:", event.error);
+window.addEventListener('error', (event) => {
+  console.error('Global error:', event.error);
   if (updateInProgress) {
-    utils.showStatus(
-      elements.updateStatus,
-      "An unexpected error occurred during update",
-      "error"
-    );
+    utils.showStatus(elements.updateStatus, 'An unexpected error occurred during update', 'error');
     updateInProgress = false;
     ui.updateUpdateState(false);
   }
 });
 
-window.addEventListener("unhandledrejection", (event) => {
-  console.error("Unhandled promise rejection:", event.reason);
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
   if (updateInProgress) {
-    utils.showStatus(
-      elements.updateStatus,
-      "An unexpected error occurred during update",
-      "error"
-    );
+    utils.showStatus(elements.updateStatus, 'An unexpected error occurred during update', 'error');
     updateInProgress = false;
     ui.updateUpdateState(false);
   }
@@ -899,24 +689,24 @@ window.addEventListener("unhandledrejection", (event) => {
 
 // Initialize application
 function init() {
-  console.log("Initializing BYTE-90 Serial Updater...");
-
+  console.log('Initializing BYTE-90 Serial Updater...');
+  
   if (!initializeElements()) {
-    console.error("Failed to initialize DOM elements");
+    console.error('Failed to initialize DOM elements');
     return;
   }
-
+  
   ui.checkCompatibility();
   initializeEventListeners();
-
+  
   ui.updateConnectionState(false);
   ui.updateUpdateState(false);
   utils.hideStatus(elements.connectionStatus);
   utils.hideStatus(elements.updateStatus);
   utils.resetProgress();
-
-  console.log("BYTE-90 Serial Updater initialized successfully");
+  
+  console.log('BYTE-90 Serial Updater initialized successfully');
 }
 
 // Start the application
-document.addEventListener("DOMContentLoaded", init);
+document.addEventListener('DOMContentLoaded', init);
