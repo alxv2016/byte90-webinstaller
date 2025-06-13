@@ -15,10 +15,10 @@ const RESPONSE_PREFIXES = {
   PROGRESS: 'PROGRESS:'
 };
 
-const CHUNK_SIZE = 2048; // Much larger chunks like OTA (8KB+ after base64)
-const COMMAND_TIMEOUT = 10000; // Reasonable timeout
-const MAX_RETRIES = 2; 
-const PROGRESS_UPDATE_INTERVAL = 5; // Update every 5 chunks since there are fewer total
+const CHUNK_SIZE = 128; // Back to larger chunks with higher baud rate
+const COMMAND_TIMEOUT = 15000; // Increased to 15 seconds - device is working but needs more time
+const MAX_RETRIES = 3; // Retry failed chunks
+const PROGRESS_UPDATE_INTERVAL = 50; // Update progress every 50 chunks (more frequent with fewer total chunks)
 
 // Global state
 let serialPort = null;
@@ -38,6 +38,8 @@ const elements = {
   updateType: document.getElementById('updateType'),
   firmwareFile: document.getElementById('firmwareFile'),
   uploadBtn: document.getElementById('uploadBtn'),
+  showSerialUpdate: document.getElementById('showSerialUpdate'),
+  serialUpdateSection: document.getElementById('serialUpdateSection'),
   abortBtn: document.getElementById('abortBtn'),
   progressContainer: document.getElementById('progressContainer'),
   uploadProgress: document.getElementById('uploadProgress'),
@@ -48,9 +50,7 @@ const elements = {
   firmwareVersion: document.getElementById('firmwareVersion'),
   chipModel: document.getElementById('chipModel'),
   currentMode: document.getElementById('currentMode'),
-  freeHeap: document.getElementById('freeHeap'),
-  showSerialUpdate: document.getElementById('showSerialUpdate'),
-  serialUpdateSection: document.getElementById('serialUpdateSection'),
+  freeHeap: document.getElementById('freeHeap')
 };
 
 // Utility functions
@@ -113,85 +113,51 @@ const utils = {
 
 // Serial communication functions
 const serial = {
-  async connect() {
-    try {
-      if (!navigator.serial) {
-        throw new Error('Web Serial API not supported');
-      }
-
-      utils.showStatus(elements.connectionStatus, 'Requesting serial port...', 'warning');
-
-      // Request port
-      serialPort = await navigator.serial.requestPort();
-      
-      utils.showStatus(elements.connectionStatus, 'Opening serial connection...', 'warning');
-      
-      // Use reliable high-speed baud rate
-      await serialPort.open({ 
-        baudRate: 921600, // Very reliable high speed
-        dataBits: 8,
-        stopBits: 1,
-        parity: 'none',
-        bufferSize: 16384, // Much larger buffer for big chunks
-        flowControl: 'none'
-      });
-
-      console.log('Serial port opened successfully');
-      utils.showStatus(elements.connectionStatus, 'Serial port opened, setting up communication...', 'warning');
-
-      // Set up reader and writer
-      reader = serialPort.readable.getReader();
-      writer = serialPort.writable.getWriter();
-
-      isConnected = true;
-      ui.updateConnectionState(true);
-
-      // Start listening for responses
-      serial.startListening();
-
-      // Wait a moment for device to be ready
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      utils.showStatus(elements.connectionStatus, 'Testing device communication...', 'warning');
-
-      // First, try to abort any existing update to ensure clean state
-      try {
-        console.log('Sending abort command to ensure clean state...');
-        await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (abortError) {
-        console.log('Abort command failed (this is normal if no update was in progress):', abortError.message);
-      }
-
-      utils.showStatus(elements.connectionStatus, 'Getting device information...', 'warning');
-
-      // Get device info with longer timeout for initial connection
-      try {
-        const info = await serial.sendCommand(SERIAL_COMMANDS.GET_INFO);
-        if (info && info.success) {
-          deviceInfo = info;
-          ui.updateDeviceInfo(info);
-          utils.showStatus(elements.connectionStatus, 'Device connected successfully', 'success');
-        } else {
-          console.error('Device info request failed:', info);
-          utils.showStatus(elements.connectionStatus, 'Connected but device did not respond properly. Check if device is in UPDATE_MODE.', 'warning');
-        }
-      } catch (infoError) {
-        console.error('Failed to get device info:', infoError);
-        utils.showStatus(elements.connectionStatus, 'Connected but device not responding. Ensure device is in UPDATE_MODE and serial is initialized.', 'warning');
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Connection failed:', error);
-      if (error.message.includes('timeout')) {
-        utils.showStatus(elements.connectionStatus, 'Connection timeout - ensure device is in UPDATE_MODE and not connected to other software', 'error');
-      } else {
-        utils.showStatus(elements.connectionStatus, `Connection failed: ${error.message}`, 'error');
-      }
-      return false;
+  // In the serial.connect() function, update the baud rate:
+async connect() {
+  try {
+    if (!navigator.serial) {
+      throw new Error('Web Serial API not supported');
     }
-  },
+
+    // Request port
+    serialPort = await navigator.serial.requestPort();
+    
+    // Open port with matching baud rate from ESP32 (921600)
+    await serialPort.open({ 
+      baudRate: 921600,  // Changed from 115200 to match ESP32_BAUD_RATE
+      dataBits: 8,
+      stopBits: 1,
+      parity: 'none',
+      flowControl: 'none'  // Add this for better reliability
+    });
+
+    // Set up reader and writer
+    reader = serialPort.readable.getReader();
+    writer = serialPort.writable.getWriter();
+
+    isConnected = true;
+    ui.updateConnectionState(true);
+
+    // Start listening for responses
+    serial.startListening();
+
+    // Get device info
+    const info = await serial.sendCommand(SERIAL_COMMANDS.GET_INFO);
+    if (info && info.success) {
+      deviceInfo = info;
+      ui.updateDeviceInfo(info);
+    }
+
+    utils.showStatus(elements.connectionStatus, 'Device connected successfully', 'success');
+    
+    return true;
+  } catch (error) {
+    console.error('Connection failed:', error);
+    utils.showStatus(elements.connectionStatus, `Connection failed: ${error.message}`, 'error');
+    return false;
+  }
+},
 
   async disconnect() {
     try {
@@ -418,27 +384,8 @@ const serial = {
 };
 
 // Update functions
+// Update functions
 const updater = {
-  startTime: null,
-
-  calculateETA(currentChunk, totalChunks, currentTime) {
-    if (!this.startTime) {
-      this.startTime = currentTime;
-      return '';
-    }
-
-    const elapsed = (currentTime - this.startTime) / 1000; // seconds
-    const rate = currentChunk / elapsed; // chunks per second
-    const remaining = totalChunks - currentChunk;
-    const eta = remaining / rate; // seconds
-
-    if (eta > 60) {
-      return `ETA: ${Math.round(eta / 60)}m`;
-    } else {
-      return `ETA: ${Math.round(eta)}s`;
-    }
-  },
-
   async startUpdate() {
     const file = elements.firmwareFile.files[0];
     const updateType = elements.updateType.value;
@@ -461,22 +408,13 @@ const updater = {
     }
 
     try {
-      // First, try to abort any existing update
-      console.log('Sending abort command to ensure clean state...');
-      try {
-        await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
-        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for abort to complete
-      } catch (abortError) {
-        console.log('Abort command failed (this is normal if no update was in progress):', abortError.message);
-      }
-
       updateInProgress = true;
       ui.updateUpdateState(true);
       utils.hideStatus(elements.updateStatus);
       utils.updateProgress(0, 'Initializing update...');
 
       // Start update
-      const startResponse = await serial.sendCommand(
+      const startResponse = await serial.sendCommandWithRetry(
         SERIAL_COMMANDS.START_UPDATE, 
         `${file.size},${updateType}`
       );
@@ -485,74 +423,59 @@ const updater = {
         throw new Error(startResponse?.message || 'Failed to start update');
       }
 
-      utils.updateProgress(0, 'Uploading firmware...');
-      // Force show the progress bar
-      elements.progressContainer.style.display = 'block';
+      utils.updateProgress(5, 'Reading firmware file...');
 
-      // Read file and send in chunks with retry logic
+      // Read file and send in chunks
       const arrayBuffer = await file.arrayBuffer();
       const totalChunks = Math.ceil(arrayBuffer.byteLength / CHUNK_SIZE);
       
-      console.log(`Starting firmware upload: ${totalChunks} chunks of ${CHUNK_SIZE} bytes each`);
-      utils.showStatus(elements.updateStatus, `Preparing to send ${totalChunks.toLocaleString()} chunks...`, 'warning');
-      
-      let successfulChunks = 0;
-      
+      utils.updateProgress(10, 'Starting upload...');
+
+      // Track timing for debugging
+      const startTime = performance.now();
+      let bytesTransferred = 0;
+
       for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, arrayBuffer.byteLength);
         const chunk = arrayBuffer.slice(start, end);
         const base64Chunk = utils.arrayBufferToBase64(chunk);
 
-        let chunkSuccess = false;
-        let retryCount = 0;
-
-        // Retry logic for each chunk
-        while (!chunkSuccess && retryCount < MAX_RETRIES) {
-          try {
-            if (retryCount > 0) {
-              console.log(`Retrying chunk ${i + 1}/${totalChunks}, attempt ${retryCount + 1}`);
-            }
-
-            const chunkResponse = await serial.sendCommand(SERIAL_COMMANDS.SEND_CHUNK, base64Chunk);
-            
-            if (chunkResponse && chunkResponse.success) {
-              chunkSuccess = true;
-              successfulChunks++;
-            } else {
-              throw new Error(chunkResponse?.message || 'Chunk rejected by device');
-            }
-          } catch (chunkError) {
-            retryCount++;
-            if (retryCount >= MAX_RETRIES) {
-              throw new Error(`Chunk ${i + 1} failed after ${MAX_RETRIES} attempts: ${chunkError.message}`);
-            }
-            
-            // Wait longer between retries
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-        }
-
-        // Update progress less frequently to avoid spam
-        if (i % PROGRESS_UPDATE_INTERVAL === 0 || i === totalChunks - 1) {
-          const progress = ((i + 1) / totalChunks) * 90; // Reserve 10% for finalization
-          const eta = updater.calculateETA(i + 1, totalChunks, Date.now());
-          utils.updateProgress(progress, `${(i + 1).toLocaleString()}/${totalChunks.toLocaleString()} chunks (${Math.round(progress)}%) ${eta}`);
+        // Add progress indicator for large files
+        if (i % 10 === 0) {
+          const transferProgress = 10 + ((i / totalChunks) * 80); // 10-90% range
+          const elapsed = (performance.now() - startTime) / 1000;
+          const speed = bytesTransferred / elapsed;
+          const speedText = speed > 1024 ? 
+            `${(speed / 1024).toFixed(1)} KB/s` : 
+            `${speed.toFixed(0)} B/s`;
           
-          // Force show progress bar
-          elements.progressContainer.style.display = 'block';
-          console.log(`Manual progress update: ${progress}% (${i + 1}/${totalChunks})`);
+          utils.updateProgress(
+            transferProgress, 
+            `Uploading: ${Math.round(transferProgress)}% (${speedText})`
+          );
         }
+
+        const chunkResponse = await serial.sendCommandWithRetry(
+          SERIAL_COMMANDS.SEND_CHUNK, 
+          base64Chunk
+        );
         
-        // No delay - send chunks as fast as possible with higher baud rate
-        // await new Promise(resolve => setTimeout(resolve, 25));
+        if (!chunkResponse || !chunkResponse.success) {
+          throw new Error(chunkResponse?.message || `Failed to send chunk ${i + 1}`);
+        }
+
+        bytesTransferred = end;
       }
-      
-      console.log(`Successfully sent ${successfulChunks}/${totalChunks} chunks`);
+
+      const totalTime = (performance.now() - startTime) / 1000;
+      const avgSpeed = arrayBuffer.byteLength / totalTime;
+      console.log(`Transfer completed: ${utils.formatBytes(arrayBuffer.byteLength)} in ${totalTime.toFixed(2)}s (${utils.formatBytes(avgSpeed)}/s)`);
+
       utils.updateProgress(95, 'Finalizing update...');
 
       // Finish update
-      const finishResponse = await serial.sendCommand(SERIAL_COMMANDS.FINISH_UPDATE);
+      const finishResponse = await serial.sendCommandWithRetry(SERIAL_COMMANDS.FINISH_UPDATE);
       
       if (!finishResponse || !finishResponse.success) {
         throw new Error(finishResponse?.message || 'Failed to finish update');
@@ -563,16 +486,6 @@ const updater = {
 
     } catch (error) {
       console.error('Update failed:', error);
-      
-      // Auto-abort on any error
-      console.log('Attempting to abort failed update...');
-      try {
-        await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
-        console.log('Update aborted successfully');
-      } catch (abortError) {
-        console.error('Failed to abort update:', abortError.message);
-      }
-      
       utils.showStatus(elements.updateStatus, `Update failed: ${error.message}`, 'error');
       updateInProgress = false;
       ui.updateUpdateState(false);
@@ -581,20 +494,13 @@ const updater = {
 
   async abortUpdate() {
     try {
-      console.log('Aborting update...');
       await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
       updateInProgress = false;
       ui.updateUpdateState(false);
       utils.resetProgress();
       utils.showStatus(elements.updateStatus, 'Update aborted', 'warning');
-      console.log('Update aborted successfully');
     } catch (error) {
       console.error('Failed to abort update:', error);
-      // Force reset the UI state even if abort command fails
-      updateInProgress = false;
-      ui.updateUpdateState(false);
-      utils.resetProgress();
-      utils.showStatus(elements.updateStatus, 'Update aborted (forced)', 'warning');
     }
   }
 };
@@ -662,45 +568,27 @@ const ui = {
   }
 };
 
-// Event Listeners
+// Event listeners
 function initializeEventListeners() {
-  // Method selection (only if element exists)
-  if (elements.showSerialUpdate) {
-    elements.showSerialUpdate.addEventListener('click', () => {
-      if (elements.serialUpdateSection) {
-        elements.serialUpdateSection.style.display = 'block';
-        elements.showSerialUpdate.textContent = 'Hide Serial Update';
-        elements.showSerialUpdate.onclick = () => {
-          elements.serialUpdateSection.style.display = 'none';
-          elements.showSerialUpdate.textContent = 'Use Serial Update';
-          elements.showSerialUpdate.onclick = arguments.callee.bind(elements.showSerialUpdate);
-        };
-      }
-    });
-  }
+  elements.showSerialUpdate.addEventListener('click', () => {
+    elements.serialUpdateSection.style.display = 'block';
+    elements.showSerialUpdate.textContent = 'Hide Serial Update';
+    elements.showSerialUpdate.onclick = () => {
+      elements.serialUpdateSection.style.display = 'none';
+      elements.showSerialUpdate.textContent = 'Use Serial Update';
+      elements.showSerialUpdate.onclick = arguments.callee.bind(elements.showSerialUpdate);
+    };
+  });
 
-  // Serial connection (only if elements exist)
-  if (elements.connectBtn) {
-    elements.connectBtn.addEventListener('click', serial.connect);
-  }
-  if (elements.disconnectBtn) {
-    elements.disconnectBtn.addEventListener('click', serial.disconnect);
-  }
-  if (elements.uploadBtn) {
-    elements.uploadBtn.addEventListener('click', updater.startUpdate);
-  }
-  if (elements.abortBtn) {
-    elements.abortBtn.addEventListener('click', updater.abortUpdate);
-  }
+  elements.connectBtn.addEventListener('click', serial.connect);
+  elements.disconnectBtn.addEventListener('click', serial.disconnect);
+  elements.uploadBtn.addEventListener('click', updater.startUpdate);
+  elements.abortBtn.addEventListener('click', updater.abortUpdate);
 
-  // Enable upload button when file is selected (only if elements exist)
-  if (elements.firmwareFile) {
-    elements.firmwareFile.addEventListener('change', (e) => {
-      if (elements.uploadBtn) {
-        elements.uploadBtn.disabled = !e.target.files[0] || !isConnected || updateInProgress;
-      }
-    });
-  }
+  // Enable upload button when file is selected
+  elements.firmwareFile.addEventListener('change', (e) => {
+    elements.uploadBtn.disabled = !e.target.files[0] || !isConnected || updateInProgress;
+  });
 
   // Handle page visibility changes
   document.addEventListener('visibilitychange', () => {
