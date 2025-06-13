@@ -115,16 +115,25 @@ const serial = {
         throw new Error('Web Serial API not supported');
       }
 
+      utils.showStatus(elements.connectionStatus, 'Requesting serial port...', 'warning');
+
       // Request port
       serialPort = await navigator.serial.requestPort();
+      
+      utils.showStatus(elements.connectionStatus, 'Opening serial connection...', 'warning');
       
       // Open port
       await serialPort.open({ 
         baudRate: 115200,
         dataBits: 8,
         stopBits: 1,
-        parity: 'none'
+        parity: 'none',
+        bufferSize: 4096,
+        flowControl: 'none'
       });
+
+      console.log('Serial port opened successfully');
+      utils.showStatus(elements.connectionStatus, 'Serial port opened, setting up communication...', 'warning');
 
       // Set up reader and writer
       reader = serialPort.readable.getReader();
@@ -136,19 +145,32 @@ const serial = {
       // Start listening for responses
       serial.startListening();
 
-      // Get device info
-      const info = await serial.sendCommand(SERIAL_COMMANDS.GET_INFO);
-      if (info && info.success) {
-        deviceInfo = info;
-        ui.updateDeviceInfo(info);
-      }
+      utils.showStatus(elements.connectionStatus, 'Getting device information...', 'warning');
 
-      utils.showStatus(elements.connectionStatus, 'Device connected successfully', 'success');
+      // Get device info with longer timeout for initial connection
+      try {
+        const info = await serial.sendCommand(SERIAL_COMMANDS.GET_INFO);
+        if (info && info.success) {
+          deviceInfo = info;
+          ui.updateDeviceInfo(info);
+          utils.showStatus(elements.connectionStatus, 'Device connected successfully', 'success');
+        } else {
+          console.error('Device info request failed:', info);
+          utils.showStatus(elements.connectionStatus, 'Connected but device did not respond properly. Check if device is in UPDATE_MODE.', 'warning');
+        }
+      } catch (infoError) {
+        console.error('Failed to get device info:', infoError);
+        utils.showStatus(elements.connectionStatus, 'Connected but device not responding. Ensure device is in UPDATE_MODE.', 'warning');
+      }
       
       return true;
     } catch (error) {
       console.error('Connection failed:', error);
-      utils.showStatus(elements.connectionStatus, `Connection failed: ${error.message}`, 'error');
+      if (error.message.includes('timeout')) {
+        utils.showStatus(elements.connectionStatus, 'Connection timeout - ensure device is in UPDATE_MODE and not connected to other software', 'error');
+      } else {
+        utils.showStatus(elements.connectionStatus, `Connection failed: ${error.message}`, 'error');
+      }
       return false;
     }
   },
@@ -191,16 +213,22 @@ const serial = {
     const commandString = data ? `${command}:${data}\n` : `${command}\n`;
     const encoder = new TextEncoder();
     
+    console.log('Sending command:', JSON.stringify(commandString));
+    
     try {
       await writer.write(encoder.encode(commandString));
+      console.log('Command sent successfully');
       
       // Wait for response with timeout
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
+          console.log('Command timed out after', COMMAND_TIMEOUT, 'ms');
+          serial.pendingCommand = null;
           reject(new Error('Command timeout'));
         }, COMMAND_TIMEOUT);
 
         const handleResponse = (response) => {
+          console.log('Command response received:', response);
           clearTimeout(timeout);
           resolve(response);
         };
@@ -218,13 +246,21 @@ const serial = {
     const decoder = new TextDecoder();
     let buffer = '';
 
+    console.log('Starting to listen for serial data...');
+
     try {
       while (reader && isConnected) {
         const { value, done } = await reader.read();
         
-        if (done) break;
+        if (done) {
+          console.log('Serial reader done');
+          break;
+        }
 
-        buffer += decoder.decode(value, { stream: true });
+        const chunk = decoder.decode(value, { stream: true });
+        console.log('Raw serial chunk received:', JSON.stringify(chunk));
+        
+        buffer += chunk;
         
         // Process complete lines
         let lines = buffer.split('\n');
@@ -232,6 +268,7 @@ const serial = {
 
         for (const line of lines) {
           if (line.trim()) {
+            console.log('Processing line:', JSON.stringify(line.trim()));
             serial.handleResponse(line.trim());
           }
         }
@@ -244,7 +281,7 @@ const serial = {
   },
 
   handleResponse(line) {
-    console.log('Received:', line);
+    console.log('Raw received:', line);
 
     let response = null;
     let isProgress = false;
@@ -252,30 +289,37 @@ const serial = {
     // Parse response based on prefix
     if (line.startsWith(RESPONSE_PREFIXES.OK)) {
       const jsonStr = line.substring(RESPONSE_PREFIXES.OK.length);
+      console.log('OK JSON:', jsonStr);
       try {
         response = JSON.parse(jsonStr);
       } catch (e) {
-        console.error('Failed to parse OK response:', e);
+        console.error('Failed to parse OK response:', e, 'Raw:', jsonStr);
         return;
       }
     } else if (line.startsWith(RESPONSE_PREFIXES.ERROR)) {
       const jsonStr = line.substring(RESPONSE_PREFIXES.ERROR.length);
+      console.log('ERROR JSON:', jsonStr);
       try {
         response = JSON.parse(jsonStr);
         response.success = false;
       } catch (e) {
-        console.error('Failed to parse ERROR response:', e);
+        console.error('Failed to parse ERROR response:', e, 'Raw:', jsonStr);
         return;
       }
     } else if (line.startsWith(RESPONSE_PREFIXES.PROGRESS)) {
       const jsonStr = line.substring(RESPONSE_PREFIXES.PROGRESS.length);
+      console.log('PROGRESS JSON:', jsonStr);
       try {
         response = JSON.parse(jsonStr);
         isProgress = true;
       } catch (e) {
-        console.error('Failed to parse PROGRESS response:', e);
+        console.error('Failed to parse PROGRESS response:', e, 'Raw:', jsonStr);
         return;
       }
+    } else {
+      // Log any unrecognized responses
+      console.log('Unrecognized response format:', line);
+      return;
     }
 
     if (isProgress) {
