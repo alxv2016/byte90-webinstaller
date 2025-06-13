@@ -387,6 +387,7 @@ const serial = {
 // Update functions
 // Enhanced version with status checking
 // Fixed update functions
+// Optimized update functions with smaller chunks
 const updater = {
   async startUpdate() {
     const file = elements.firmwareFile?.files[0];
@@ -402,68 +403,49 @@ const updater = {
       return;
     }
 
-    // Validate file type based on selection
-    const expectedFilename = updateType === 'firmware' ? 'byte90.bin' : 'byte90animations.bin';
-    if (!file.name.includes(updateType === 'firmware' ? 'byte90' : 'byte90animations')) {
-      utils.showStatus(elements.updateStatus, `Please select the correct file (${expectedFilename})`, 'error');
-      return;
-    }
-
     try {
       updateInProgress = true;
       ui.updateUpdateState(true);
       utils.hideStatus(elements.updateStatus);
       utils.updateProgress(0, 'Checking device status...');
 
-      // Check current status first
+      // Check and reset device state
       try {
         console.log('Getting device status...');
         const statusResponse = await serial.sendCommand(SERIAL_COMMANDS.GET_STATUS);
         console.log('Device status:', statusResponse);
-        
-        if (statusResponse && statusResponse.update_active) {
-          console.log('Device has active update, aborting...');
-          await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
       } catch (error) {
-        console.warn('Failed to get status, continuing with abort anyway:', error);
+        console.warn('Failed to get status:', error);
       }
 
       utils.updateProgress(1, 'Resetting device state...');
 
-      // Always abort any existing update to reset state
       try {
         console.log('Sending ABORT_UPDATE...');
         await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
         console.log('Device state reset');
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
-        console.warn('Abort command failed (normal if no update was active):', error);
+        console.warn('Abort command failed:', error);
       }
 
       utils.updateProgress(3, 'Starting new update...');
 
-      // Start update with detailed logging
+      // Start update
       console.log(`Starting update: ${file.size} bytes, type: ${updateType}`);
       
       const startResponse = await serial.sendCommandWithRetry(
         SERIAL_COMMANDS.START_UPDATE, 
         `${file.size},${updateType}`,
-        2 // Only 2 retries for start command
+        2
       );
 
       console.log('Start update response:', startResponse);
 
-      if (!startResponse) {
-        throw new Error('No response from START_UPDATE command');
+      if (!startResponse || !startResponse.success) {
+        throw new Error(startResponse?.message || 'START_UPDATE command failed');
       }
 
-      if (!startResponse.success) {
-        throw new Error(startResponse.message || 'START_UPDATE command failed');
-      }
-
-      // Verify we're in the right state
       if (startResponse.state !== 'RECEIVING') {
         throw new Error(`Expected RECEIVING state, got: ${startResponse.state}`);
       }
@@ -471,15 +453,17 @@ const updater = {
       console.log('Update started successfully, beginning file transfer...');
       utils.updateProgress(5, 'Reading firmware file...');
       
-      // Read file and send in chunks
+      // Read file and send in smaller chunks
       const arrayBuffer = await file.arrayBuffer();
       const totalChunks = Math.ceil(arrayBuffer.byteLength / CHUNK_SIZE);
       
-      console.log(`File read: ${arrayBuffer.byteLength} bytes in ${totalChunks} chunks`);
+      console.log(`File read: ${arrayBuffer.byteLength} bytes in ${totalChunks} chunks of ${CHUNK_SIZE} bytes each`);
       utils.updateProgress(10, 'Starting upload...');
 
       const startTime = performance.now();
       let bytesTransferred = 0;
+      let consecutiveErrors = 0;
+      const maxConsecutiveErrors = 3;
 
       for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE;
@@ -487,8 +471,8 @@ const updater = {
         const chunk = arrayBuffer.slice(start, end);
         const base64Chunk = utils.arrayBufferToBase64(chunk);
 
-        // Update progress every 10 chunks
-        if (i % 10 === 0) {
+        // Update progress more frequently for smaller chunks
+        if (i % 5 === 0 || i === totalChunks - 1) {
           const transferProgress = 10 + ((i / totalChunks) * 80);
           const elapsed = (performance.now() - startTime) / 1000;
           const speed = bytesTransferred / elapsed || 0;
@@ -498,25 +482,40 @@ const updater = {
           
           utils.updateProgress(
             transferProgress, 
-            `Uploading: ${Math.round(transferProgress)}% (${speedText})`
+            `Uploading: ${Math.round(transferProgress)}% (${speedText}) - Chunk ${i}/${totalChunks}`
           );
           
-          console.log(`Chunk ${i}/${totalChunks} (${transferProgress.toFixed(1)}%) - ${speedText}`);
+          if (i % 20 === 0) {
+            console.log(`Chunk ${i}/${totalChunks} (${transferProgress.toFixed(1)}%) - ${speedText}`);
+          }
         }
 
         try {
           const chunkResponse = await serial.sendCommandWithRetry(
             SERIAL_COMMANDS.SEND_CHUNK, 
             base64Chunk,
-            1 // Only 1 retry for chunks to avoid timeouts
+            2 // 2 retries for chunks
           );
           
           if (!chunkResponse || !chunkResponse.success) {
-            throw new Error(chunkResponse?.message || `Failed to send chunk ${i + 1}/${totalChunks}`);
+            consecutiveErrors++;
+            throw new Error(chunkResponse?.message || `Chunk ${i + 1} rejected by device`);
           }
+
+          // Reset error counter on success
+          consecutiveErrors = 0;
+          
         } catch (chunkError) {
-          console.error(`Chunk ${i + 1} failed:`, chunkError);
-          throw new Error(`Chunk ${i + 1}/${totalChunks} failed: ${chunkError.message}`);
+          consecutiveErrors++;
+          console.error(`Chunk ${i + 1} failed (${consecutiveErrors} consecutive errors):`, chunkError);
+          
+          if (consecutiveErrors >= maxConsecutiveErrors) {
+            throw new Error(`Too many consecutive errors (${consecutiveErrors}). Last error: ${chunkError.message}`);
+          }
+          
+          // Don't increment i, retry the same chunk
+          i--;
+          continue;
         }
 
         bytesTransferred = end;
