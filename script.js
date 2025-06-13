@@ -150,13 +150,14 @@ const serial = {
 
       utils.showStatus(elements.connectionStatus, 'Testing device communication...', 'warning');
 
-      // Try a simple test first - just send some data and see if we get anything back
-      console.log('Sending test command: PING');
-      const encoder = new TextEncoder();
-      await writer.write(encoder.encode("PING\n"));
-
-      // Wait a bit to see if device responds to anything
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // First, try to abort any existing update to ensure clean state
+      try {
+        console.log('Sending abort command to ensure clean state...');
+        await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (abortError) {
+        console.log('Abort command failed (this is normal if no update was in progress):', abortError.message);
+      }
 
       utils.showStatus(elements.connectionStatus, 'Getting device information...', 'warning');
 
@@ -423,6 +424,15 @@ const updater = {
     }
 
     try {
+      // First, try to abort any existing update
+      console.log('Sending abort command to ensure clean state...');
+      try {
+        await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for abort to complete
+      } catch (abortError) {
+        console.log('Abort command failed (this is normal if no update was in progress):', abortError.message);
+      }
+
       updateInProgress = true;
       ui.updateUpdateState(true);
       utils.hideStatus(elements.updateStatus);
@@ -444,7 +454,7 @@ const updater = {
       const arrayBuffer = await file.arrayBuffer();
       const totalChunks = Math.ceil(arrayBuffer.byteLength / CHUNK_SIZE);
       
-      ESP_LOGI(SERIAL_LOG, `Starting firmware upload: ${totalChunks} chunks of ${CHUNK_SIZE} bytes each`);
+      console.log(`Starting firmware upload: ${totalChunks} chunks of ${CHUNK_SIZE} bytes each`);
       
       for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE;
@@ -454,10 +464,15 @@ const updater = {
 
         console.log(`Sending chunk ${i + 1}/${totalChunks}, size: ${chunk.byteLength} bytes, base64 length: ${base64Chunk.length}`);
 
-        const chunkResponse = await serial.sendCommand(SERIAL_COMMANDS.SEND_CHUNK, base64Chunk);
-        
-        if (!chunkResponse || !chunkResponse.success) {
-          throw new Error(chunkResponse?.message || `Failed to send chunk ${i + 1}`);
+        try {
+          const chunkResponse = await serial.sendCommand(SERIAL_COMMANDS.SEND_CHUNK, base64Chunk);
+          
+          if (!chunkResponse || !chunkResponse.success) {
+            throw new Error(chunkResponse?.message || `Failed to send chunk ${i + 1}`);
+          }
+        } catch (chunkError) {
+          console.error(`Chunk ${i + 1} failed:`, chunkError);
+          throw new Error(`Chunk ${i + 1} failed: ${chunkError.message}`);
         }
 
         // Update progress based on chunks sent
@@ -482,6 +497,16 @@ const updater = {
 
     } catch (error) {
       console.error('Update failed:', error);
+      
+      // Auto-abort on any error
+      console.log('Attempting to abort failed update...');
+      try {
+        await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
+        console.log('Update aborted successfully');
+      } catch (abortError) {
+        console.error('Failed to abort update:', abortError.message);
+      }
+      
       utils.showStatus(elements.updateStatus, `Update failed: ${error.message}`, 'error');
       updateInProgress = false;
       ui.updateUpdateState(false);
@@ -490,13 +515,20 @@ const updater = {
 
   async abortUpdate() {
     try {
+      console.log('Aborting update...');
       await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
       updateInProgress = false;
       ui.updateUpdateState(false);
       utils.resetProgress();
       utils.showStatus(elements.updateStatus, 'Update aborted', 'warning');
+      console.log('Update aborted successfully');
     } catch (error) {
       console.error('Failed to abort update:', error);
+      // Force reset the UI state even if abort command fails
+      updateInProgress = false;
+      ui.updateUpdateState(false);
+      utils.resetProgress();
+      utils.showStatus(elements.updateStatus, 'Update aborted (forced)', 'warning');
     }
   }
 };
