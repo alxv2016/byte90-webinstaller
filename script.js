@@ -15,10 +15,14 @@ const RESPONSE_PREFIXES = {
   PROGRESS: 'PROGRESS:'
 };
 
-const CHUNK_SIZE = 1024; // Reduced from 1536 to speed up processing
-const COMMAND_TIMEOUT = 5000; // General command timeout
-const CHUNK_TIMEOUT = 15000; // Longer timeout specifically for chunks
-const MAX_RETRIES = 3;
+// Use much larger chunks for better performance
+const CHUNK_SIZE = 2048; // Increased to 2KB chunks
+const COMMAND_TIMEOUT = 3000;
+const CHUNK_TIMEOUT = 8000; // Longer timeout for larger chunks
+const MAX_RETRIES = 1;
+
+// This will reduce your chunk count from 1012 to about 506 chunks
+// Roughly half the protocol overhead = roughly double the speed
 
 // Global state
 let serialPort = null;
