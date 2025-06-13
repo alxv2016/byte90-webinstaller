@@ -15,10 +15,10 @@ const RESPONSE_PREFIXES = {
   PROGRESS: 'PROGRESS:'
 };
 
-const CHUNK_SIZE = 128; // Back to larger chunks with higher baud rate
-const COMMAND_TIMEOUT = 15000; // Increased to 15 seconds - device is working but needs more time
-const MAX_RETRIES = 3; // Retry failed chunks
-const PROGRESS_UPDATE_INTERVAL = 50; // Update progress every 50 chunks (more frequent with fewer total chunks)
+const CHUNK_SIZE = 2048; // Much larger chunks like OTA (8KB+ after base64)
+const COMMAND_TIMEOUT = 10000; // Reasonable timeout
+const MAX_RETRIES = 2; 
+const PROGRESS_UPDATE_INTERVAL = 5; // Update every 5 chunks since there are fewer total
 
 // Global state
 let serialPort = null;
@@ -38,8 +38,6 @@ const elements = {
   updateType: document.getElementById('updateType'),
   firmwareFile: document.getElementById('firmwareFile'),
   uploadBtn: document.getElementById('uploadBtn'),
-  showSerialUpdate: document.getElementById('showSerialUpdate'),
-  serialUpdateSection: document.getElementById('serialUpdateSection'),
   abortBtn: document.getElementById('abortBtn'),
   progressContainer: document.getElementById('progressContainer'),
   uploadProgress: document.getElementById('uploadProgress'),
@@ -50,7 +48,9 @@ const elements = {
   firmwareVersion: document.getElementById('firmwareVersion'),
   chipModel: document.getElementById('chipModel'),
   currentMode: document.getElementById('currentMode'),
-  freeHeap: document.getElementById('freeHeap')
+  freeHeap: document.getElementById('freeHeap'),
+  showSerialUpdate: document.getElementById('showSerialUpdate'),
+  serialUpdateSection: document.getElementById('serialUpdateSection'),
 };
 
 // Utility functions
@@ -438,6 +438,7 @@ const updater = {
       return `ETA: ${Math.round(eta)}s`;
     }
   },
+
   async startUpdate() {
     const file = elements.firmwareFile.files[0];
     const updateType = elements.updateType.value;
@@ -548,8 +549,6 @@ const updater = {
       }
       
       console.log(`Successfully sent ${successfulChunks}/${totalChunks} chunks`);
-      utils.updateProgress(95, 'Finalizing update...');
-
       utils.updateProgress(95, 'Finalizing update...');
 
       // Finish update
@@ -663,27 +662,45 @@ const ui = {
   }
 };
 
-// Event listeners
+// Event Listeners
 function initializeEventListeners() {
-  elements.showSerialUpdate.addEventListener('click', () => {
-    elements.serialUpdateSection.style.display = 'block';
-    elements.showSerialUpdate.textContent = 'Hide Serial Update';
-    elements.showSerialUpdate.onclick = () => {
-      elements.serialUpdateSection.style.display = 'none';
-      elements.showSerialUpdate.textContent = 'Use Serial Update';
-      elements.showSerialUpdate.onclick = arguments.callee.bind(elements.showSerialUpdate);
-    };
-  });
+  // Method selection (only if element exists)
+  if (elements.showSerialUpdate) {
+    elements.showSerialUpdate.addEventListener('click', () => {
+      if (elements.serialUpdateSection) {
+        elements.serialUpdateSection.style.display = 'block';
+        elements.showSerialUpdate.textContent = 'Hide Serial Update';
+        elements.showSerialUpdate.onclick = () => {
+          elements.serialUpdateSection.style.display = 'none';
+          elements.showSerialUpdate.textContent = 'Use Serial Update';
+          elements.showSerialUpdate.onclick = arguments.callee.bind(elements.showSerialUpdate);
+        };
+      }
+    });
+  }
 
-  elements.connectBtn.addEventListener('click', serial.connect);
-  elements.disconnectBtn.addEventListener('click', serial.disconnect);
-  elements.uploadBtn.addEventListener('click', updater.startUpdate);
-  elements.abortBtn.addEventListener('click', updater.abortUpdate);
+  // Serial connection (only if elements exist)
+  if (elements.connectBtn) {
+    elements.connectBtn.addEventListener('click', serial.connect);
+  }
+  if (elements.disconnectBtn) {
+    elements.disconnectBtn.addEventListener('click', serial.disconnect);
+  }
+  if (elements.uploadBtn) {
+    elements.uploadBtn.addEventListener('click', updater.startUpdate);
+  }
+  if (elements.abortBtn) {
+    elements.abortBtn.addEventListener('click', updater.abortUpdate);
+  }
 
-  // Enable upload button when file is selected
-  elements.firmwareFile.addEventListener('change', (e) => {
-    elements.uploadBtn.disabled = !e.target.files[0] || !isConnected || updateInProgress;
-  });
+  // Enable upload button when file is selected (only if elements exist)
+  if (elements.firmwareFile) {
+    elements.firmwareFile.addEventListener('change', (e) => {
+      if (elements.uploadBtn) {
+        elements.uploadBtn.disabled = !e.target.files[0] || !isConnected || updateInProgress;
+      }
+    });
+  }
 
   // Handle page visibility changes
   document.addEventListener('visibilitychange', () => {
