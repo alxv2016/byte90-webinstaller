@@ -283,6 +283,18 @@ const serial = {
   handleResponse(line) {
     console.log('Raw received:', line);
 
+    // Ignore ESP32 log messages (they start with timestamps like [471306])
+    if (line.match(/^\[\d+\]/)) {
+      console.log('Ignoring ESP32 log message');
+      return;
+    }
+
+    // Ignore empty lines or lines that don't look like responses
+    if (!line.trim() || (!line.includes('OK:') && !line.includes('ERROR:') && !line.includes('PROGRESS:'))) {
+      console.log('Ignoring non-command response');
+      return;
+    }
+
     let response = null;
     let isProgress = false;
 
@@ -317,7 +329,7 @@ const serial = {
         return;
       }
     } else {
-      // Log any unrecognized responses
+      // Log any unrecognized responses that aren't ESP32 logs
       console.log('Unrecognized response format:', line);
       return;
     }
