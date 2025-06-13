@@ -16,7 +16,7 @@ const RESPONSE_PREFIXES = {
 };
 
 const CHUNK_SIZE = 128; // Back to larger chunks with higher baud rate
-const COMMAND_TIMEOUT = 10000; // 10 seconds per chunk
+const COMMAND_TIMEOUT = 15000; // Increased to 15 seconds - device is working but needs more time
 const MAX_RETRIES = 3; // Retry failed chunks
 const PROGRESS_UPDATE_INTERVAL = 50; // Update progress every 50 chunks (more frequent with fewer total chunks)
 
