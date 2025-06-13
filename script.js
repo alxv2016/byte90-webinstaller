@@ -15,8 +15,8 @@ const RESPONSE_PREFIXES = {
   PROGRESS: 'PROGRESS:'
 };
 
-const CHUNK_SIZE = 512; // Reduced from 1024 to avoid buffer issues
-const COMMAND_TIMEOUT = 15000; // Increased to 15 seconds
+const CHUNK_SIZE = 128; // Much smaller chunks for reliable transmission
+const COMMAND_TIMEOUT = 20000; // Increased timeout since we'll have more chunks
 
 // Global state
 let serialPort = null;
@@ -444,21 +444,28 @@ const updater = {
       const arrayBuffer = await file.arrayBuffer();
       const totalChunks = Math.ceil(arrayBuffer.byteLength / CHUNK_SIZE);
       
+      ESP_LOGI(SERIAL_LOG, `Starting firmware upload: ${totalChunks} chunks of ${CHUNK_SIZE} bytes each`);
+      
       for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, arrayBuffer.byteLength);
         const chunk = arrayBuffer.slice(start, end);
         const base64Chunk = utils.arrayBufferToBase64(chunk);
 
+        console.log(`Sending chunk ${i + 1}/${totalChunks}, size: ${chunk.byteLength} bytes, base64 length: ${base64Chunk.length}`);
+
         const chunkResponse = await serial.sendCommand(SERIAL_COMMANDS.SEND_CHUNK, base64Chunk);
         
         if (!chunkResponse || !chunkResponse.success) {
-          throw new Error(chunkResponse?.message || 'Failed to send chunk');
+          throw new Error(chunkResponse?.message || `Failed to send chunk ${i + 1}`);
         }
 
         // Update progress based on chunks sent
         const progress = ((i + 1) / totalChunks) * 90; // Reserve 10% for finalization
-        utils.updateProgress(progress, `Uploading: ${Math.round(progress)}%`);
+        utils.updateProgress(progress, `Chunk ${i + 1}/${totalChunks} (${Math.round(progress)}%)`);
+        
+        // Small delay between chunks to prevent overwhelming the device
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
 
       utils.updateProgress(95, 'Finalizing update...');
