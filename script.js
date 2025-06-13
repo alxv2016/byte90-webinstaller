@@ -124,9 +124,9 @@ const serial = {
       
       utils.showStatus(elements.connectionStatus, 'Opening serial connection...', 'warning');
       
-      // Open port with higher baud rate
+      // Open port with even higher baud rate
       await serialPort.open({ 
-        baudRate: 460800, // Much faster than 115200
+        baudRate: 921600, // Even faster - 2x the current speed
         dataBits: 8,
         stopBits: 1,
         parity: 'none',
@@ -541,8 +541,8 @@ const updater = {
           console.log(`Manual progress update: ${progress}% (${i + 1}/${totalChunks})`);
         }
         
-        // Shorter delay with higher baud rate
-        await new Promise(resolve => setTimeout(resolve, 25));
+        // No delay - send chunks as fast as possible with higher baud rate
+        // await new Promise(resolve => setTimeout(resolve, 25));
       }
       
       console.log(`Successfully sent ${successfulChunks}/${totalChunks} chunks`);
