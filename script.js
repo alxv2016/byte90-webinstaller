@@ -460,41 +460,25 @@ const serial = {
 };
 
 // Update functions
+// Complete updater object with enhanced debugging
 const updater = {
   async startUpdate() {
     const file = elements.firmwareFile?.files[0];
-    const updateType = elements.updateType?.value || "firmware";
+    const updateType = elements.updateType?.value || 'firmware';
 
     if (!file) {
-      utils.showStatus(
-        elements.updateStatus,
-        "Please select a firmware file",
-        "error"
-      );
+      utils.showStatus(elements.updateStatus, 'Please select a firmware file', 'error');
       return;
     }
 
-    if (!file.name.endsWith(".bin")) {
-      utils.showStatus(
-        elements.updateStatus,
-        "Please select a .bin file",
-        "error"
-      );
+    if (!file.name.endsWith('.bin')) {
+      utils.showStatus(elements.updateStatus, 'Please select a .bin file', 'error');
       return;
     }
 
-    const expectedFilename =
-      updateType === "firmware" ? "byte90.bin" : "byte90animations.bin";
-    if (
-      !file.name.includes(
-        updateType === "firmware" ? "byte90" : "byte90animations"
-      )
-    ) {
-      utils.showStatus(
-        elements.updateStatus,
-        `Please select the correct file (${expectedFilename})`,
-        "error"
-      );
+    const expectedFilename = updateType === 'firmware' ? 'byte90.bin' : 'byte90animations.bin';
+    if (!file.name.includes(updateType === 'firmware' ? 'byte90' : 'byte90animations')) {
+      utils.showStatus(elements.updateStatus, `Please select the correct file (${expectedFilename})`, 'error');
       return;
     }
 
@@ -502,213 +486,253 @@ const updater = {
       updateInProgress = true;
       ui.updateUpdateState(true);
       utils.hideStatus(elements.updateStatus);
-      utils.updateProgress(0, "Checking device status...");
+      utils.updateProgress(0, 'Checking device status...');
 
+      // Check and reset device state
       try {
-        console.log("Getting device status...");
-        const statusResponse = await serial.sendCommand(
-          SERIAL_COMMANDS.GET_STATUS
-        );
-        console.log("Device status:", statusResponse);
-
+        console.log('Getting device status...');
+        const statusResponse = await serial.sendCommand(SERIAL_COMMANDS.GET_STATUS);
+        console.log('Device status:', statusResponse);
+        
         if (statusResponse && statusResponse.update_active) {
-          console.log("Device has active update, aborting...");
+          console.log('Device has active update, aborting...');
           await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       } catch (error) {
-        console.warn("Failed to get status:", error);
+        console.warn('Failed to get status:', error);
       }
 
-      utils.updateProgress(1, "Resetting device state...");
+      utils.updateProgress(1, 'Resetting device state...');
 
       try {
-        console.log("Sending ABORT_UPDATE...");
+        console.log('Sending ABORT_UPDATE...');
         await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
-        console.log("Device state reset");
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        console.log('Device state reset');
+        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
-        console.warn("Abort command failed:", error);
+        console.warn('Abort command failed:', error);
       }
 
-      utils.updateProgress(3, "Starting new update...");
+      utils.updateProgress(3, 'Starting new update...');
 
+      // Start update
       console.log(`Starting update: ${file.size} bytes, type: ${updateType}`);
-
+      
       const startResponse = await serial.sendCommandWithRetry(
-        SERIAL_COMMANDS.START_UPDATE,
+        SERIAL_COMMANDS.START_UPDATE, 
         `${file.size},${updateType}`,
         2
       );
 
-      console.log("Start update response:", startResponse);
+      console.log('Start update response:', startResponse);
 
       if (!startResponse || !startResponse.success) {
-        throw new Error(
-          startResponse?.message || "START_UPDATE command failed"
-        );
+        throw new Error(startResponse?.message || 'START_UPDATE command failed');
       }
 
-      if (startResponse.state !== "RECEIVING") {
-        throw new Error(
-          `Expected RECEIVING state, got: ${startResponse.state}`
-        );
+      if (startResponse.state !== 'RECEIVING') {
+        throw new Error(`Expected RECEIVING state, got: ${startResponse.state}`);
       }
 
-      console.log("Update started successfully, beginning file transfer...");
-      utils.updateProgress(5, "Reading firmware file...");
-
+      console.log('Update started successfully, beginning file transfer...');
+      utils.updateProgress(5, 'Reading firmware file...');
+      
+      // Read file and prepare for chunked transfer
       const arrayBuffer = await file.arrayBuffer();
       const totalChunks = Math.ceil(arrayBuffer.byteLength / CHUNK_SIZE);
+      
+      console.log(`📁 FILE ANALYSIS:`);
+      console.log(`File size: ${arrayBuffer.byteLength} bytes (${utils.formatBytes(arrayBuffer.byteLength)})`);
+      console.log(`Chunk size: ${CHUNK_SIZE} bytes`);
+      console.log(`Total chunks: ${totalChunks}`);
+      console.log(`Last chunk size: ${arrayBuffer.byteLength - ((totalChunks - 1) * CHUNK_SIZE)} bytes`);
+      
+      utils.updateProgress(10, 'Starting upload...');
 
-      console.log(
-        `File read: ${arrayBuffer.byteLength} bytes in ${totalChunks} chunks of ${CHUNK_SIZE} bytes each`
-      );
-      utils.updateProgress(10, "Starting upload...");
+      // =====================================================================
+      // ENHANCED CHUNK TRANSFER WITH COMPREHENSIVE DEBUGGING
+      // =====================================================================
+      
+      console.log(`\n🚀 Starting transfer: ${arrayBuffer.byteLength} bytes in ${totalChunks} chunks`);
+      console.log(`Expected final total: ${totalChunks * CHUNK_SIZE} (${totalChunks * CHUNK_SIZE - arrayBuffer.byteLength} bytes over file size)`);
 
       const startTime = performance.now();
       let bytesTransferred = 0;
       let consecutiveErrors = 0;
       const maxConsecutiveErrors = 3;
 
-      // Enhanced chunk sending with size validation
       for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, arrayBuffer.byteLength);
         const chunk = arrayBuffer.slice(start, end);
         const base64Chunk = utils.arrayBufferToBase64(chunk);
 
-        // DEBUG: Log chunk details for the last few chunks
-        if (i >= totalChunks - 5) {
-          console.log(
-            `Chunk ${i + 1}/${totalChunks}: start=${start}, end=${end}, size=${
-              chunk.byteLength
-            }, base64_len=${base64Chunk.length}`
-          );
+        // DETAILED DEBUG for chunks near the end
+        if (i >= totalChunks - 10) {
+          console.log(`\n🔍 CHUNK ${i + 1}/${totalChunks} ANALYSIS:`);
+          console.log(`  📍 Range: ${start} to ${end} (size: ${chunk.byteLength})`);
+          console.log(`  📊 Base64 length: ${base64Chunk.length} chars`);
+          console.log(`  🎯 Running total: ${end} / ${arrayBuffer.byteLength} bytes`);
+          console.log(`  ⏱️  Progress: ${((i + 1) / totalChunks * 100).toFixed(1)}%`);
+          
+          // Validate base64 encoding
+          const expectedBase64Length = Math.ceil(chunk.byteLength * 4 / 3);
+          const actualBase64Length = base64Chunk.length;
+          const base64Diff = Math.abs(actualBase64Length - expectedBase64Length);
+          
+          if (base64Diff > 4) {
+            console.error(`❌ Base64 encoding error for chunk ${i + 1}:`);
+            console.error(`   Expected: ~${expectedBase64Length} chars`);
+            console.error(`   Actual: ${actualBase64Length} chars`);
+            console.error(`   Difference: ${base64Diff} chars`);
+          } else {
+            console.log(`  ✅ Base64 encoding OK: ${actualBase64Length} chars (expected ~${expectedBase64Length})`);
+          }
+
+          // Show first and last few characters of base64
+          console.log(`  📝 Base64 preview: "${base64Chunk.substring(0, 20)}...${base64Chunk.substring(base64Chunk.length - 20)}"`);
         }
 
-        if (i % 20 === 0 || i === totalChunks - 1) {
-          const transferProgress = 10 + (i / totalChunks) * 80;
+        // Progress updates
+        if (i % 20 === 0 || i === totalChunks - 1 || i >= totalChunks - 5) {
+          const transferProgress = 10 + ((i / totalChunks) * 80);
           const elapsed = (performance.now() - startTime) / 1000;
           const speed = bytesTransferred / elapsed || 0;
-          const speedText =
-            speed > 1024
-              ? `${(speed / 1024).toFixed(1)} KB/s`
-              : `${speed.toFixed(0)} B/s`;
-
+          const speedText = speed > 1024 ? 
+            `${(speed / 1024).toFixed(1)} KB/s` : 
+            `${speed.toFixed(0)} B/s`;
+          
           utils.updateProgress(
-            transferProgress,
-            `Uploading: ${Math.round(
-              transferProgress
-            )}% (${speedText}) - Chunk ${i + 1}/${totalChunks}`
+            transferProgress, 
+            `Uploading: ${Math.round(transferProgress)}% (${speedText}) - Chunk ${i + 1}/${totalChunks}`
           );
-
-          if (i % 50 === 0 || i >= totalChunks - 5) {
-            console.log(
-              `Chunk ${i + 1}/${totalChunks} (${transferProgress.toFixed(
-                1
-              )}%) - ${speedText} - ${chunk.byteLength} bytes`
-            );
-          }
+          
+          console.log(`📊 Progress Update: Chunk ${i + 1}/${totalChunks} (${transferProgress.toFixed(1)}%) - ${speedText} - ${chunk.byteLength} bytes`);
         }
 
         try {
+          console.log(`📤 Sending chunk ${i + 1}/${totalChunks} (${chunk.byteLength} bytes -> ${base64Chunk.length} base64 chars)`);
+          
+          const chunkStartTime = performance.now();
           const chunkResponse = await serial.sendCommand(
-            SERIAL_COMMANDS.SEND_CHUNK,
+            SERIAL_COMMANDS.SEND_CHUNK, 
             base64Chunk
           );
-
+          const chunkTime = performance.now() - chunkStartTime;
+          
+          // Debug response for chunks near the end
+          if (i >= totalChunks - 5) {
+            console.log(`📨 Chunk ${i + 1} response (${chunkTime.toFixed(2)}ms):`, chunkResponse);
+          }
+          
           if (!chunkResponse || !chunkResponse.success) {
             consecutiveErrors++;
-            throw new Error(
-              chunkResponse?.message || `Chunk ${i + 1} rejected by device`
-            );
+            console.error(`❌ Chunk ${i + 1} rejected:`, chunkResponse);
+            throw new Error(chunkResponse?.message || `Chunk ${i + 1} rejected by device`);
           }
 
           consecutiveErrors = 0;
-
-          // IMPORTANT: Track bytes transferred by actual chunk size, not cumulative
-          bytesTransferred = end; // This should equal the total file size at the end
-
-          // Validate we're not exceeding file size
-          if (bytesTransferred > arrayBuffer.byteLength) {
-            console.error(
-              `ERROR: bytesTransferred (${bytesTransferred}) exceeds file size (${arrayBuffer.byteLength})`
-            );
-            throw new Error(
-              "Internal error: transferred size exceeds file size"
-            );
+          
+          // Update bytes transferred tracking
+          const previousBytes = bytesTransferred;
+          bytesTransferred = end;
+          const bytesAdded = bytesTransferred - previousBytes;
+          
+          // Debug byte tracking for chunks near the end
+          if (i >= totalChunks - 5) {
+            console.log(`📈 Byte tracking: ${previousBytes} -> ${bytesTransferred} (+${bytesAdded} bytes)`);
+            console.log(`📋 Chunk ${i + 1} summary: ${chunk.byteLength} bytes sent, ${bytesAdded} bytes credited`);
+            
+            if (bytesAdded !== chunk.byteLength) {
+              console.warn(`⚠️  Byte mismatch: sent ${chunk.byteLength}, credited ${bytesAdded}`);
+            }
           }
+          
         } catch (chunkError) {
           consecutiveErrors++;
-          console.error(
-            `Chunk ${i + 1} failed (${consecutiveErrors} consecutive errors):`,
-            chunkError
-          );
-
+          console.error(`❌ Chunk ${i + 1} failed (attempt ${consecutiveErrors}):`, chunkError);
+          
           if (consecutiveErrors >= maxConsecutiveErrors) {
-            throw new Error(
-              `Too many consecutive errors (${consecutiveErrors}). Last error: ${chunkError.message}`
-            );
+            throw new Error(`Too many consecutive errors (${consecutiveErrors}). Last error: ${chunkError.message}`);
           }
-
+          
+          console.log(`🔄 Retrying chunk ${i + 1}...`);
           i--; // Retry the same chunk
           continue;
         }
       }
 
-      // VALIDATE: Final size check before declaring transfer complete
+      // =====================================================================
+      // FINAL VALIDATION AND SUMMARY
+      // =====================================================================
+      
+      console.log(`\n🏁 TRANSFER COMPLETION ANALYSIS:`);
+      console.log(`📁 Original file size: ${arrayBuffer.byteLength} bytes`);
+      console.log(`📊 Bytes transferred: ${bytesTransferred} bytes`);
+      console.log(`📐 Difference: ${bytesTransferred - arrayBuffer.byteLength} bytes`);
+      console.log(`📦 Total chunks sent: ${totalChunks}`);
+      console.log(`⏱️  Transfer time: ${((performance.now() - startTime) / 1000).toFixed(2)} seconds`);
+
+      // Critical validation
       if (bytesTransferred !== arrayBuffer.byteLength) {
-        console.error(
-          `CRITICAL: Transfer size mismatch! Transferred: ${bytesTransferred}, Expected: ${arrayBuffer.byteLength}`
-        );
-        throw new Error(
-          `Transfer incomplete: ${bytesTransferred} of ${arrayBuffer.byteLength} bytes transferred`
-        );
+        console.error(`\n❌ CRITICAL TRANSFER ERROR:`);
+        console.error(`Expected: ${arrayBuffer.byteLength} bytes`);
+        console.error(`Actual: ${bytesTransferred} bytes`);
+        console.error(`Missing: ${arrayBuffer.byteLength - bytesTransferred} bytes`);
+        
+        // Analyze the last chunk in detail
+        const lastChunkIndex = totalChunks - 1;
+        const lastChunkStart = lastChunkIndex * CHUNK_SIZE;
+        const lastChunkEnd = Math.min(lastChunkStart + CHUNK_SIZE, arrayBuffer.byteLength);
+        const lastChunkSize = lastChunkEnd - lastChunkStart;
+        
+        console.error(`\n🔍 LAST CHUNK ANALYSIS:`);
+        console.error(`Chunk ${totalChunks}: start=${lastChunkStart}, end=${lastChunkEnd}, size=${lastChunkSize}`);
+        console.error(`Expected final position: ${arrayBuffer.byteLength}`);
+        console.error(`Actual final position: ${bytesTransferred}`);
+        
+        throw new Error(`Transfer incomplete: ${bytesTransferred} of ${arrayBuffer.byteLength} bytes transferred (missing ${arrayBuffer.byteLength - bytesTransferred} bytes)`);
       }
 
-      console.log(`✅ Transfer validation passed: ${bytesTransferred} bytes`);
+      console.log(`✅ Transfer validation PASSED: All ${bytesTransferred} bytes confirmed`);
 
       const totalTime = (performance.now() - startTime) / 1000;
       const avgSpeed = arrayBuffer.byteLength / totalTime;
-      console.log(
-        `Transfer completed: ${utils.formatBytes(
-          arrayBuffer.byteLength
-        )} in ${totalTime.toFixed(2)}s (${utils.formatBytes(avgSpeed)}/s)`
-      );
-      utils.updateProgress(95, "Finalizing update...");
+      console.log(`🎉 Transfer completed successfully: ${utils.formatBytes(arrayBuffer.byteLength)} in ${totalTime.toFixed(2)}s (${utils.formatBytes(avgSpeed)}/s)`);
 
-      const finishResponse = await serial.sendCommandWithRetry(
-        SERIAL_COMMANDS.FINISH_UPDATE
-      );
+      // =====================================================================
+      // FINALIZE UPDATE
+      // =====================================================================
 
+      utils.updateProgress(95, 'Finalizing update...');
+
+      console.log(`\n🔒 Finalizing update...`);
+      const finishResponse = await serial.sendCommandWithRetry(SERIAL_COMMANDS.FINISH_UPDATE);
+      
       if (!finishResponse || !finishResponse.success) {
-        throw new Error(finishResponse?.message || "Failed to finish update");
+        throw new Error(finishResponse?.message || 'Failed to finish update');
       }
 
-      utils.updateProgress(100, "Update completed successfully!");
-      utils.showStatus(
-        elements.updateStatus,
-        "Update completed! Device will restart automatically.",
-        "success"
-      );
-      updateInProgress = false;
-      ui.updateUpdateState(false);
-    } catch (error) {
-      console.error("Update failed:", error);
-      utils.showStatus(
-        elements.updateStatus,
-        `Update failed: ${error.message}`,
-        "error"
-      );
+      utils.updateProgress(100, 'Update completed successfully!');
+      utils.showStatus(elements.updateStatus, 'Update completed! Device will restart automatically.', 'success');
       updateInProgress = false;
       ui.updateUpdateState(false);
 
+      console.log(`🎊 UPDATE COMPLETED SUCCESSFULLY!`);
+
+    } catch (error) {
+      console.error(`💥 Update failed:`, error);
+      utils.showStatus(elements.updateStatus, `Update failed: ${error.message}`, 'error');
+      updateInProgress = false;
+      ui.updateUpdateState(false);
+      
+      // Cleanup
       try {
-        console.log("Cleaning up after error...");
+        console.log('🧹 Cleaning up after error...');
         await serial.sendCommand(SERIAL_COMMANDS.ABORT_UPDATE);
       } catch (abortError) {
-        console.warn("Failed to abort update after error:", abortError);
+        console.warn('Failed to abort update after error:', abortError);
       }
     }
   },
@@ -719,11 +743,11 @@ const updater = {
       updateInProgress = false;
       ui.updateUpdateState(false);
       utils.resetProgress();
-      utils.showStatus(elements.updateStatus, "Update aborted", "warning");
+      utils.showStatus(elements.updateStatus, 'Update aborted', 'warning');
     } catch (error) {
-      console.error("Failed to abort update:", error);
+      console.error('Failed to abort update:', error);
     }
-  },
+  }
 };
 
 // UI management
