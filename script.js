@@ -15,8 +15,8 @@ const RESPONSE_PREFIXES = {
   PROGRESS: 'PROGRESS:'
 };
 
-const CHUNK_SIZE = 1024; // Base64 encoded chunk size
-const COMMAND_TIMEOUT = 10000; // 10 seconds
+const CHUNK_SIZE = 512; // Reduced from 1024 to avoid buffer issues
+const COMMAND_TIMEOUT = 15000; // Increased to 15 seconds
 
 // Global state
 let serialPort = null;
@@ -145,6 +145,19 @@ const serial = {
       // Start listening for responses
       serial.startListening();
 
+      // Wait a moment for device to be ready
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      utils.showStatus(elements.connectionStatus, 'Testing device communication...', 'warning');
+
+      // Try a simple test first - just send some data and see if we get anything back
+      console.log('Sending test command: PING');
+      const encoder = new TextEncoder();
+      await writer.write(encoder.encode("PING\n"));
+
+      // Wait a bit to see if device responds to anything
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       utils.showStatus(elements.connectionStatus, 'Getting device information...', 'warning');
 
       // Get device info with longer timeout for initial connection
@@ -160,7 +173,7 @@ const serial = {
         }
       } catch (infoError) {
         console.error('Failed to get device info:', infoError);
-        utils.showStatus(elements.connectionStatus, 'Connected but device not responding. Ensure device is in UPDATE_MODE.', 'warning');
+        utils.showStatus(elements.connectionStatus, 'Connected but device not responding. Ensure device is in UPDATE_MODE and serial is initialized.', 'warning');
       }
       
       return true;
@@ -213,10 +226,18 @@ const serial = {
     const commandString = data ? `${command}:${data}\n` : `${command}\n`;
     const encoder = new TextEncoder();
     
-    console.log('Sending command:', JSON.stringify(commandString));
+    console.log('Sending command:', command, 'data length:', data.length);
     
     try {
-      await writer.write(encoder.encode(commandString));
+      // For large chunks, ensure we write it all at once
+      const encodedData = encoder.encode(commandString);
+      console.log('Encoded command length:', encodedData.length);
+      
+      await writer.write(encodedData);
+      
+      // Add a small delay to ensure the command is fully transmitted
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
       console.log('Command sent successfully');
       
       // Wait for response with timeout
@@ -284,13 +305,30 @@ const serial = {
     console.log('Raw received:', line);
 
     // Ignore ESP32 log messages (they start with timestamps like [471306])
-    if (line.match(/^\[\d+\]/)) {
+    // BUT allow command responses that start with OK:, ERROR:, PROGRESS:
+    if (line.match(/^\[\d+\]/) && !line.includes('OK:') && !line.includes('ERROR:') && !line.includes('PROGRESS:')) {
       console.log('Ignoring ESP32 log message');
       return;
     }
 
-    // Ignore empty lines or lines that don't look like responses
-    if (!line.trim() || (!line.includes('OK:') && !line.includes('ERROR:') && !line.includes('PROGRESS:'))) {
+    // Look for command responses that might be embedded in log messages
+    let actualResponse = line;
+    
+    // If line contains OK:, ERROR:, or PROGRESS:, extract that part
+    const okMatch = line.match(/OK:(\{.*\})/);
+    const errorMatch = line.match(/ERROR:(\{.*\})/);
+    const progressMatch = line.match(/PROGRESS:(\{.*\})/);
+    
+    if (okMatch) {
+      actualResponse = 'OK:' + okMatch[1];
+      console.log('Extracted OK response:', actualResponse);
+    } else if (errorMatch) {
+      actualResponse = 'ERROR:' + errorMatch[1];
+      console.log('Extracted ERROR response:', actualResponse);
+    } else if (progressMatch) {
+      actualResponse = 'PROGRESS:' + progressMatch[1];
+      console.log('Extracted PROGRESS response:', actualResponse);
+    } else if (!line.startsWith('OK:') && !line.startsWith('ERROR:') && !line.startsWith('PROGRESS:')) {
       console.log('Ignoring non-command response');
       return;
     }
@@ -299,8 +337,8 @@ const serial = {
     let isProgress = false;
 
     // Parse response based on prefix
-    if (line.startsWith(RESPONSE_PREFIXES.OK)) {
-      const jsonStr = line.substring(RESPONSE_PREFIXES.OK.length);
+    if (actualResponse.startsWith(RESPONSE_PREFIXES.OK)) {
+      const jsonStr = actualResponse.substring(RESPONSE_PREFIXES.OK.length);
       console.log('OK JSON:', jsonStr);
       try {
         response = JSON.parse(jsonStr);
@@ -308,8 +346,8 @@ const serial = {
         console.error('Failed to parse OK response:', e, 'Raw:', jsonStr);
         return;
       }
-    } else if (line.startsWith(RESPONSE_PREFIXES.ERROR)) {
-      const jsonStr = line.substring(RESPONSE_PREFIXES.ERROR.length);
+    } else if (actualResponse.startsWith(RESPONSE_PREFIXES.ERROR)) {
+      const jsonStr = actualResponse.substring(RESPONSE_PREFIXES.ERROR.length);
       console.log('ERROR JSON:', jsonStr);
       try {
         response = JSON.parse(jsonStr);
@@ -318,8 +356,8 @@ const serial = {
         console.error('Failed to parse ERROR response:', e, 'Raw:', jsonStr);
         return;
       }
-    } else if (line.startsWith(RESPONSE_PREFIXES.PROGRESS)) {
-      const jsonStr = line.substring(RESPONSE_PREFIXES.PROGRESS.length);
+    } else if (actualResponse.startsWith(RESPONSE_PREFIXES.PROGRESS)) {
+      const jsonStr = actualResponse.substring(RESPONSE_PREFIXES.PROGRESS.length);
       console.log('PROGRESS JSON:', jsonStr);
       try {
         response = JSON.parse(jsonStr);
@@ -330,7 +368,7 @@ const serial = {
       }
     } else {
       // Log any unrecognized responses that aren't ESP32 logs
-      console.log('Unrecognized response format:', line);
+      console.log('Unrecognized response format:', actualResponse);
       return;
     }
 
