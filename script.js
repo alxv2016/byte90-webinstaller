@@ -15,10 +15,10 @@ const RESPONSE_PREFIXES = {
   PROGRESS: 'PROGRESS:'
 };
 
-const CHUNK_SIZE = 32; // Very small chunks for UART reliability
+const CHUNK_SIZE = 128; // Back to larger chunks with higher baud rate
 const COMMAND_TIMEOUT = 10000; // 10 seconds per chunk
 const MAX_RETRIES = 3; // Retry failed chunks
-const PROGRESS_UPDATE_INTERVAL = 100; // Update progress every 100 chunks
+const PROGRESS_UPDATE_INTERVAL = 50; // Update progress every 50 chunks (more frequent with fewer total chunks)
 
 // Global state
 let serialPort = null;
@@ -124,9 +124,9 @@ const serial = {
       
       utils.showStatus(elements.connectionStatus, 'Opening serial connection...', 'warning');
       
-      // Open port
+      // Open port with higher baud rate
       await serialPort.open({ 
-        baudRate: 115200,
+        baudRate: 460800, // Much faster than 115200
         dataBits: 8,
         stopBits: 1,
         parity: 'none',
@@ -522,8 +522,8 @@ const updater = {
           utils.updateProgress(progress, `${(i + 1).toLocaleString()}/${totalChunks.toLocaleString()} chunks (${Math.round(progress)}%) ${eta}`);
         }
         
-        // Very short delay between chunks
-        await new Promise(resolve => setTimeout(resolve, 50));
+        // Shorter delay with higher baud rate
+        await new Promise(resolve => setTimeout(resolve, 25));
       }
       
       console.log(`Successfully sent ${successfulChunks}/${totalChunks} chunks`);
