@@ -565,15 +565,28 @@ const serial = {
     if (line.startsWith(RESPONSE_PREFIXES.OK)) {
       const jsonStr = line.substring(RESPONSE_PREFIXES.OK.length);
       try {
-        response = JSON.parse(jsonStr);
+        // Fix malformed JSON from ESP32 - handle various firmware_version formatting issues
+        let fixedJsonStr = jsonStr;
+        
+        // Fix case: "firmware_version":1.0.3" (missing opening quote)
+        fixedJsonStr = fixedJsonStr.replace(/"firmware_version":(\d+\.\d+\.\d+)"/, '"firmware_version":"$1"');
+        
+        // Fix case: "firmware_version":1.0.3 (missing quotes entirely)
+        fixedJsonStr = fixedJsonStr.replace(/"firmware_version":(\d+\.\d+\.\d+)([,}])/, '"firmware_version":"$1"$2');
+        
+        response = JSON.parse(fixedJsonStr);
       } catch (e) {
         console.error("Failed to parse OK response:", jsonStr, e);
+        console.error("Attempted to fix JSON, result:", fixedJsonStr);
         return;
       }
     } else if (line.startsWith(RESPONSE_PREFIXES.ERROR)) {
       const jsonStr = line.substring(RESPONSE_PREFIXES.ERROR.length);
       try {
-        response = JSON.parse(jsonStr);
+        let fixedJsonStr = jsonStr;
+        fixedJsonStr = fixedJsonStr.replace(/"firmware_version":(\d+\.\d+\.\d+)"/, '"firmware_version":"$1"');
+        fixedJsonStr = fixedJsonStr.replace(/"firmware_version":(\d+\.\d+\.\d+)([,}])/, '"firmware_version":"$1"$2');
+        response = JSON.parse(fixedJsonStr);
         response.success = false;
       } catch (e) {
         console.error("Failed to parse ERROR response:", jsonStr, e);
@@ -582,7 +595,10 @@ const serial = {
     } else if (line.startsWith(RESPONSE_PREFIXES.PROGRESS)) {
       const jsonStr = line.substring(RESPONSE_PREFIXES.PROGRESS.length);
       try {
-        response = JSON.parse(jsonStr);
+        let fixedJsonStr = jsonStr;
+        fixedJsonStr = fixedJsonStr.replace(/"firmware_version":(\d+\.\d+\.\d+)"/, '"firmware_version":"$1"');
+        fixedJsonStr = fixedJsonStr.replace(/"firmware_version":(\d+\.\d+\.\d+)([,}])/, '"firmware_version":"$1"$2');
+        response = JSON.parse(fixedJsonStr);
         isProgress = true;
       } catch (e) {
         console.error("Failed to parse PROGRESS response:", jsonStr, e);
@@ -747,7 +763,7 @@ const updater = {
           const chunk = arrayBuffer.slice(start, end);
           const base64Chunk = utils.arrayBufferToBase64(chunk);
 
-          batchPromises.push(this.sendChunkOptimized(base64Chunk, j));
+          batchPromises.push(updater.sendChunkOptimized(base64Chunk, j));
         }
 
         try {
