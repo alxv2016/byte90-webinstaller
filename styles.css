@@ -553,12 +553,19 @@ main {
 .btn:disabled, .btn:disabled:hover, .btn:disabled:active {
   background-color: var(--c-gray-400);
   color: var(--c-gray-500);
-  cursor: pointer;
+  cursor: default;
 }
 
 .btn.btn-danger {
   background-color: var(--c-danger);
   color: var(--c-white);
+}
+
+.info-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  font-size: var(--caption);
 }
 
 @media (max-width: 576px) {
