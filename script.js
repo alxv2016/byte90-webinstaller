@@ -579,9 +579,6 @@ const serial = {
     }
 
     if (isProgress) {
-      const percent = response.progress || 0;
-      utils.updateProgress(percent);
-
       if (response.completed) {
         updateInProgress = false;
         if (response.success) {
@@ -731,15 +728,10 @@ const updater = {
         if (i % 20 === 0 || i === totalChunks - 1) {
           const transferProgress = 10 + (i / totalChunks) * 80;
           const elapsed = (performance.now() - startTime) / 1000;
-          const speed = bytesTransferred / elapsed || 0;
-          const speedText =
-            speed > 1024
-              ? `${(speed / 1024).toFixed(1)} KB/s`
-              : `${speed.toFixed(0)} B/s`;
 
           utils.updateProgress(
             transferProgress,
-            `Uploading: ${Math.round(transferProgress)}% (${speedText})`
+            `Uploading: ${Math.round(transferProgress)}% Don't disconnect device.`
           );
         }
 
