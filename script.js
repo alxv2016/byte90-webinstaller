@@ -51,7 +51,7 @@ function initializeElements() {
     'connectBtn', 'disconnectBtn', 'connectionStatus', 'deviceInfo',
     'updateSection', 'updateType', 'firmwareFile', 'uploadBtn', 'abortBtn',
     'progressContainer', 'uploadProgress', 'progressText', 'updateStatus',
-    'compatibilityStatus', 'serialSupport', 'firmwareVersion', 'chipModel',
+    'compatibilityStatus', 'serialSupport', 'firmwareVersion', 'mcu',
     'availableSpace', 'freeHeap'
   ];
 
@@ -582,15 +582,15 @@ const ui = {
   updateDeviceInfo(info) {
     if (info) {
       if (elements.firmwareVersion) elements.firmwareVersion.textContent = info.firmware_version || '-';
-      if (elements.chipModel) elements.chipModel.textContent = info.chip_model || '-';
+      if (elements.mcu) elements.mcu.textContent = info.mcu || '-';
       if (elements.availableSpace) elements.availableSpace.textContent = info.flash_available || '-';
-      if (elements.freeHeap) elements.freeHeap.textContent = info.free_heap ? utils.formatBytes(info.free_heap) : '-';
+      if (elements.freeHeap) elements.freeHeap.textContent = info.free_heap || '-';
     }
   },
 
   clearDeviceInfo() {
     if (elements.firmwareVersion) elements.firmwareVersion.textContent = '-';
-    if (elements.chipModel) elements.chipModel.textContent = '-';
+    if (elements.mcu) elements.mcu.textContent = '-';
     if (elements.availableSpace) elements.availableSpace.textContent = '-';
     if (elements.freeHeap) elements.freeHeap.textContent = '-';
   },
