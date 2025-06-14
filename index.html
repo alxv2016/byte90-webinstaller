@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <title>BYTE-90 Serial Updater</title>
+    <title>BYTE-90 Firmeware Update</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -37,14 +37,13 @@
                                 fill="#fff" />
                         </svg>
                     </div>
-                    <h1 class="card__title">Serial Firmware Updater</h1>
-                    <p class="card__description">Connect your BYTE-90 device via USB cable to update firmware directly through your browser. Ensure your device is in UPDATE_MODE before connecting.</p>
+                    <h1 class="card__title">BYTE-90 Firmware Update</h1>
+                    <p class="card__description">To update your BYTE-90 firmware, put the device in Update Mode, connect via the provided USB-C cable, and complete the update through your browser.</p>
                 </div>
                 <div class="card__body">
                     <div class="form-control">
-                        <label for="connectBtn">Device Connection</label>
                         <div class="connection-controls">
-                            <button class="btn btn-primary" id="connectBtn">Connect Device</button>
+                            <button class="btn btn-primary" id="connectBtn">Connect</button>
                             <button class="btn btn-muted" id="disconnectBtn" style="display: none;">Disconnect</button>
                         </div>
                     </div>
@@ -86,7 +85,8 @@
                             </svg>
                         </div>
                         <div>
-                            Your device will restart automatically once the firmware update is complete. Make sure to keep the USB connection stable during the update process.
+                            Your device will restart automatically once the firmware update is complete. Make sure to
+                            keep the USB connection stable during the update process.
                         </div>
                     </div>
                 </div>
@@ -128,7 +128,8 @@
             <div class="card">
                 <div class="card__header">
                     <h2 class="card__title">Browser Compatibility</h2>
-                    <p class="card__description">This updater requires Web Serial API support. Compatible browsers include Chrome 89+, Edge 89+, and Opera 75+.</p>
+                    <p class="card__description">This updater requires Web Serial API support. Compatible browsers
+                        include Chrome 89+, Edge 89+, and Opera 75+.</p>
                 </div>
                 <div class="card__body">
                     <div class="compatibility-status" id="compatibilityStatus">
