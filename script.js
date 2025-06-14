@@ -175,12 +175,22 @@ const serial = {
 
   async connect() {
     try {
+      // Clean up any existing connection first
+      if (isConnected || serialPort) {
+        console.log("Cleaning up existing connection...");
+        await serial.disconnect();
+        // Wait a bit for cleanup to complete
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
       if (!navigator.serial) {
         throw new Error("Web Serial API not supported");
       }
 
+      console.log("Requesting serial port...");
       serialPort = await navigator.serial.requestPort();
 
+      console.log("Opening serial port...");
       await serialPort.open({
         baudRate: 230400,
         dataBits: 8,
@@ -195,6 +205,7 @@ const serial = {
       isConnected = true;
       ui.updateConnectionState(true);
 
+      console.log("Starting serial listener...");
       serial.startListening();
 
       try {
@@ -204,11 +215,12 @@ const serial = {
           "info"
         );
 
+        console.log("Sending GET_INFO command...");
         const info = await serial.sendCommand(
           SERIAL_COMMANDS.GET_INFO,
           "",
-          3000
-        ); // Shorter timeout
+          5000 // Increase timeout to 5 seconds
+        );
 
         if (info && info.success) {
           deviceInfo = info;
@@ -227,7 +239,7 @@ const serial = {
               "warning"
             );
 
-            return false; // Connection failed due to wrong mode
+            return false;
           }
 
           // Device is in correct mode
@@ -261,6 +273,8 @@ const serial = {
       return true;
     } catch (error) {
       console.error("Connection failed:", error);
+      // Ensure cleanup on connection failure
+      await serial.disconnect();
       utils.showStatus(
         elements.connectionStatus,
         `Connection failed: ${error.message}`,
@@ -271,39 +285,70 @@ const serial = {
   },
 
   async disconnect() {
+    // Prevent multiple simultaneous disconnections
+    if (!isConnected) {
+      console.log("Already disconnected");
+      return true;
+    }
+
     try {
+      console.log("Starting disconnect process...");
+      isConnected = false; // Set this first to prevent race conditions
+
       if (reader) {
-        await reader.cancel();
-        reader.releaseLock();
+        try {
+          await reader.cancel();
+        } catch (e) {
+          console.warn("Reader cancel failed:", e);
+        }
+        try {
+          reader.releaseLock();
+        } catch (e) {
+          console.warn("Reader release failed:", e);
+        }
         reader = null;
       }
 
       if (writer) {
-        await writer.close();
+        try {
+          await writer.close();
+        } catch (e) {
+          console.warn("Writer close failed:", e);
+        }
         writer = null;
       }
 
       if (serialPort) {
-        await serialPort.close();
+        try {
+          await serialPort.close();
+        } catch (e) {
+          console.warn("Serial port close failed:", e);
+        }
         serialPort = null;
       }
 
-      isConnected = false;
+      // Clear any pending commands
+      serial.pendingCommand = null;
       deviceInfo = null;
+
       ui.updateConnectionState(false);
-      utils.showStatus(
-        elements.connectionStatus,
-        "Device disconnected",
-        "warning"
-      );
 
       if (elements.firmwareFile) {
         elements.firmwareFile.value = "";
       }
 
+      console.log("Disconnect completed successfully");
       return true;
     } catch (error) {
       console.error("Disconnect failed:", error);
+      // Force cleanup even if there were errors
+      isConnected = false;
+      reader = null;
+      writer = null;
+      serialPort = null;
+      serial.pendingCommand = null;
+      deviceInfo = null;
+      ui.updateConnectionState(false);
       return false;
     }
   },

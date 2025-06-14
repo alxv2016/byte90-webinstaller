@@ -550,10 +550,10 @@ main {
   color: var(--c-success-text);
 }
 
-.btn:disabled {
+.btn:disabled, .btn:disabled:hover, .btn:disabled:active {
   background-color: var(--c-gray-400);
   color: var(--c-gray-500);
-  cursor: not-allowed;
+  cursor: pointer;
 }
 
 .btn.btn-danger {
