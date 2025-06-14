@@ -179,6 +179,10 @@ const serial = {
     console.log('=== Starting Connection Process ===');
     console.log('Current state:', { isConnected, serialPort: !!serialPort, reader: !!reader, writer: !!writer });
 
+    utils.resetProgress();
+    utils.hideStatus(elements.updateStatus);
+    utils.hideStatus(elements.connectionStatus);
+    
     // Clean up any existing connection first
     if (isConnected || serialPort) {
       console.log("Cleaning up existing connection...");
@@ -308,6 +312,10 @@ const serial = {
   async disconnect() {
   console.log('=== Starting Disconnect Process ===');
   console.log('Current state:', { isConnected, serialPort: !!serialPort, reader: !!reader, writer: !!writer });
+
+  utils.resetProgress();
+  utils.hideStatus(elements.updateStatus);
+  utils.hideStatus(elements.connectionStatus);
 
   // Prevent multiple simultaneous disconnections
   if (!isConnected && !serialPort) {
