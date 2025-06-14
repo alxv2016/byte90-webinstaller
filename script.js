@@ -297,6 +297,10 @@ const serial = {
         "warning"
       );
 
+      if (elements.firmwareFile) {
+        elements.firmwareFile.value = "";
+      }
+
       return true;
     } catch (error) {
       console.error("Disconnect failed:", error);
@@ -669,6 +673,15 @@ const updater = {
         "Update completed! Device will restart automatically.",
         "success"
       );
+
+      if (elements.firmwareFile) {
+        elements.firmwareFile.value = "";
+        // Also disable the upload button since no file is selected
+        if (elements.uploadBtn) {
+          elements.uploadBtn.disabled = true;
+        }
+      }
+
       updateInProgress = false;
       ui.updateUpdateState(false);
     } catch (error) {
@@ -814,8 +827,7 @@ function initializeEventListeners() {
   window.addEventListener("beforeunload", (e) => {
     if (updateInProgress) {
       e.preventDefault();
-      e.returnValue =
-        "Firmware update in progress. Are you sure you want to leave?";
+      return ''; 
     }
   });
 }
