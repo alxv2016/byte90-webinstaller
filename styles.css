@@ -223,7 +223,7 @@ main {
   width: auto;
   height: 64px;
   border-radius: 6px;
-  color: var(--c-logo);
+  color: var(--c-gray-900);
   overflow: hidden;
 
   svg {
