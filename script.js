@@ -443,7 +443,7 @@ const serial = {
 
     if (isProgress) {
       const percent = response.progress || 0;
-      const message = response.message || `${percent}%`;
+      const message = `${percent}%`;
       utils.updateProgress(percent, message);
 
       if (response.completed) {
