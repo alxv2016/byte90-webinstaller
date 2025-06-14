@@ -1,13 +1,16 @@
 /**
- * BYTE-90 Firmware Update Web Interface
+ * BYTE-90 Firmware Update Web Interface - OPTIMIZED VERSION
  *
  * This application provides a web-based firmware update interface for BYTE-90 devices
  * using the Web Serial API. It handles device connection, mode verification, firmware
  * transfer with progress tracking, and automatic error recovery.
+ * 
+ * OPTIMIZATIONS: Enhanced for maximum transfer speed with batched processing,
+ * increased baud rates, larger chunks, and reduced latency.
  */
 
 //==============================================================================
-// CONSTANTS AND CONFIGURATION
+// CONSTANTS AND CONFIGURATION - OPTIMIZED FOR SPEED
 //==============================================================================
 
 /**
@@ -36,21 +39,25 @@ const RESPONSE_PREFIXES = {
   PROGRESS: "PROGRESS:", // Progress update prefix
 };
 
+// OPTIMIZED: Increased baud rate and buffer sizes for maximum throughput
 const SERIAL_CONFIG = {
-  baudRate: 230400,
+  baudRate: 921600, // 4x faster than original 230400
   dataBits: 8,
   stopBits: 1,
   parity: "none",
   flowControl: "none",
+  bufferSize: 16384, // Larger buffer for better throughput
 };
 
 /**
- * Transfer settings optimized for speed and reliability
+ * OPTIMIZED: Transfer settings for maximum speed and reliability
  */
-const CHUNK_SIZE = 512; // Bytes per chunk - balanced for reliability
-const COMMAND_TIMEOUT = 10000; // Default command timeout (10 seconds)
-const CHUNK_TIMEOUT = 10000; // Chunk transfer timeout (10 seconds)
-const MAX_RETRIES = 2; // Maximum retry attempts for failed operations
+const CHUNK_SIZE = 1024; // Doubled from 512 - larger chunks = fewer round trips
+const COMMAND_TIMEOUT = 15000; // Slightly increased for larger chunks
+const CHUNK_TIMEOUT = 5000; // Reduced for faster failure detection
+const MAX_RETRIES = 2; // Keep retries low for speed
+const BATCH_SIZE = 5; // Send multiple chunks in parallel
+const PROGRESS_UPDATE_INTERVAL = 50; // Update progress less frequently for better performance
 
 //==============================================================================
 // GLOBAL STATE MANAGEMENT
@@ -140,7 +147,7 @@ function initializeElements() {
 }
 
 //==============================================================================
-// UTILITY FUNCTIONS
+// UTILITY FUNCTIONS - OPTIMIZED
 //==============================================================================
 
 /**
@@ -193,20 +200,23 @@ const utils = {
   },
 
   /**
-   * Updates the progress bar and text display
+   * OPTIMIZED: Updates progress with batched DOM updates for better performance
    * @param {number} percent - Progress percentage (0-100)
    * @param {string} message - Optional progress message
    */
   updateProgress(percent, message = "") {
-    if (elements.uploadProgress) {
-      elements.uploadProgress.value = percent;
-    }
-    if (elements.progressText) {
-      elements.progressText.textContent = message || `${Math.round(percent)}%`;
-    }
-    if (elements.progressContainer) {
-      elements.progressContainer.style.display = "block";
-    }
+    // Batch DOM updates using requestAnimationFrame for smooth performance
+    requestAnimationFrame(() => {
+      if (elements.uploadProgress) {
+        elements.uploadProgress.value = percent;
+      }
+      if (elements.progressText) {
+        elements.progressText.textContent = message || `${Math.round(percent)}%`;
+      }
+      if (elements.progressContainer && elements.progressContainer.style.display === "none") {
+        elements.progressContainer.style.display = "block";
+      }
+    });
   },
 
   /**
@@ -238,23 +248,26 @@ const utils = {
   },
 
   /**
-   * Converts ArrayBuffer to Base64 string for serial transmission
+   * OPTIMIZED: Faster Base64 conversion for large chunks
    * @param {ArrayBuffer} buffer - Binary data to encode
    * @returns {string} - Base64 encoded string
    */
   arrayBufferToBase64(buffer) {
-    let binary = "";
     const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    let binary = '';
+    const chunkSize = 8192; // Process in 8KB chunks to avoid string length limits
+    
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, chunk);
     }
+    
     return btoa(binary);
   },
 };
 
 //==============================================================================
-// SERIAL COMMUNICATION MODULE
+// SERIAL COMMUNICATION MODULE - OPTIMIZED
 //==============================================================================
 
 /**
@@ -264,7 +277,7 @@ const serial = {
   pendingCommand: null, // Currently awaiting response
 
   /**
-   * Establishes connection to the BYTE-90 device and verifies Update Mode
+   * OPTIMIZED: Establishes connection with enhanced serial configuration
    * @returns {Promise<boolean>} - True if connection successful and in Update Mode
    */
   async connect() {
@@ -285,6 +298,7 @@ const serial = {
 
       serialPort = await navigator.serial.requestPort();
 
+      // Use optimized serial configuration with higher baud rate and larger buffers
       await serialPort.open(SERIAL_CONFIG);
 
       reader = serialPort.readable.getReader();
@@ -443,7 +457,7 @@ const serial = {
   },
 
   /**
-   * Sends a command to the device and waits for response
+   * OPTIMIZED: Sends command with reduced timeout for chunk transfers
    * @param {string} command - Command to send
    * @param {string} data - Optional command data
    * @param {number} customTimeout - Custom timeout in milliseconds
@@ -458,8 +472,7 @@ const serial = {
       const commandString = data ? `${command}:${data}\n` : `${command}\n`;
       const encoder = new TextEncoder();
 
-      const timeoutMs =
-        command === SERIAL_COMMANDS.SEND_CHUNK ? CHUNK_TIMEOUT : customTimeout;
+      const timeoutMs = command === SERIAL_COMMANDS.SEND_CHUNK ? CHUNK_TIMEOUT : customTimeout;
 
       const timeout = setTimeout(() => {
         console.error(`Command timeout (${timeoutMs}ms): ${command}`);
@@ -477,6 +490,7 @@ const serial = {
         }
       };
 
+      // Send immediately without additional delays
       writer.write(encoder.encode(commandString)).catch((error) => {
         clearTimeout(timeout);
         serial.pendingCommand = null;
@@ -503,7 +517,7 @@ const serial = {
         if (attempt === retries) {
           throw error;
         }
-        const retryDelay = command === SERIAL_COMMANDS.SEND_CHUNK ? 1000 : 200;
+        const retryDelay = command === SERIAL_COMMANDS.SEND_CHUNK ? 200 : 200;
         await new Promise((resolve) => setTimeout(resolve, retryDelay));
       }
     }
@@ -606,7 +620,7 @@ const serial = {
 };
 
 //==============================================================================
-// FIRMWARE UPDATE MODULE
+// FIRMWARE UPDATE MODULE - OPTIMIZED WITH BATCH PROCESSING
 //==============================================================================
 
 /**
@@ -614,7 +628,7 @@ const serial = {
  */
 const updater = {
   /**
-   * Initiates the firmware update process with comprehensive validation
+   * OPTIMIZED: Firmware update with batch processing for maximum speed
    * @returns {Promise<void>} - Resolves when update completes or rejects on error
    */
   async startUpdate() {
@@ -682,9 +696,9 @@ const updater = {
         console.warn("Abort command failed:", error);
       }
 
-      utils.updateProgress(3, "Starting new update...");
+      utils.updateProgress(3, "Starting optimized update...");
 
-      console.log(`Starting update: ${file.size} bytes, type: ${updateType}`);
+      console.log(`Starting optimized update: ${file.size} bytes, type: ${updateType}`);
 
       const startResponse = await serial.sendCommandWithRetry(
         SERIAL_COMMANDS.START_UPDATE,
@@ -712,71 +726,68 @@ const updater = {
       console.log(
         `File read: ${arrayBuffer.byteLength} bytes in ${totalChunks} chunks of ${CHUNK_SIZE} bytes each`
       );
-      utils.updateProgress(10, "Starting upload...");
+      console.log(`Using batch size: ${BATCH_SIZE} chunks per batch`);
+      
+      utils.updateProgress(10, "Starting optimized upload...");
 
       const startTime = performance.now();
       let bytesTransferred = 0;
       let consecutiveErrors = 0;
       const maxConsecutiveErrors = 3;
 
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, arrayBuffer.byteLength);
-        const chunk = arrayBuffer.slice(start, end);
-        const base64Chunk = utils.arrayBufferToBase64(chunk);
+      // OPTIMIZED: Process chunks in batches for parallel transfer
+      for (let i = 0; i < totalChunks; i += BATCH_SIZE) {
+        const batchEnd = Math.min(i + BATCH_SIZE, totalChunks);
+        const batchPromises = [];
 
-        if (i % 20 === 0 || i === totalChunks - 1) {
-          const transferProgress = 10 + (i / totalChunks) * 80;
+        // Create batch of chunk transfer promises
+        for (let j = i; j < batchEnd; j++) {
+          const start = j * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, arrayBuffer.byteLength);
+          const chunk = arrayBuffer.slice(start, end);
+          const base64Chunk = utils.arrayBufferToBase64(chunk);
 
-          utils.updateProgress(
-            transferProgress,
-            `Uploading: ${Math.round(transferProgress)}% Do not disconnect device.`
-          );
+          batchPromises.push(this.sendChunkOptimized(base64Chunk, j));
         }
 
         try {
-          const chunkResponse = await serial.sendCommand(
-            SERIAL_COMMANDS.SEND_CHUNK,
-            base64Chunk
-          );
+          // Send all chunks in batch simultaneously
+          await Promise.all(batchPromises);
+          consecutiveErrors = 0;
 
-          if (!chunkResponse || !chunkResponse.success) {
-            consecutiveErrors++;
-            throw new Error(
-              chunkResponse?.message || `Chunk ${i + 1} rejected by device`
+          // Update progress less frequently for better performance
+          if (i % PROGRESS_UPDATE_INTERVAL === 0 || batchEnd >= totalChunks) {
+            const transferProgress = 10 + (batchEnd / totalChunks) * 80;
+            const bytesProcessed = Math.min(batchEnd * CHUNK_SIZE, arrayBuffer.byteLength);
+            const speedMbps = ((bytesProcessed / (performance.now() - startTime)) * 1000 / (1024 * 1024)).toFixed(2);
+            
+            utils.updateProgress(
+              transferProgress,
+              `Uploading: ${Math.round(transferProgress)}% - ${utils.formatBytes(bytesProcessed)}/${utils.formatBytes(arrayBuffer.byteLength)} (${speedMbps} MB/s)`
             );
           }
 
-          consecutiveErrors = 0;
-          if (i < totalChunks - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 10));
-          }
-        } catch (chunkError) {
+          bytesTransferred = Math.min(batchEnd * CHUNK_SIZE, arrayBuffer.byteLength);
+        } catch (batchError) {
           consecutiveErrors++;
-          console.error(
-            `Chunk ${i + 1} failed (${consecutiveErrors} consecutive errors):`,
-            chunkError
-          );
+          console.error(`Batch ${Math.floor(i/BATCH_SIZE)} failed (${consecutiveErrors} consecutive errors):`, batchError);
 
           if (consecutiveErrors >= maxConsecutiveErrors) {
-            throw new Error(
-              `Too many consecutive errors (${consecutiveErrors}). Last error: ${chunkError.message}`
-            );
+            throw new Error(`Too many batch failures (${consecutiveErrors}). Last error: ${batchError.message}`);
           }
 
-          i--;
+          // Retry the failed batch
+          i -= BATCH_SIZE;
           continue;
         }
-
-        bytesTransferred = end;
       }
 
       const totalTime = (performance.now() - startTime) / 1000;
-      const avgSpeed = arrayBuffer.byteLength / totalTime;
+      const avgSpeedMbps = (arrayBuffer.byteLength / totalTime / (1024 * 1024)).toFixed(2);
       console.log(
-        `Transfer completed: ${utils.formatBytes(
+        `Optimized transfer completed: ${utils.formatBytes(
           arrayBuffer.byteLength
-        )} in ${totalTime.toFixed(2)}s (${utils.formatBytes(avgSpeed)}/s)`
+        )} in ${totalTime.toFixed(2)}s (${avgSpeedMbps} MB/s)`
       );
 
       utils.updateProgress(95, "Finalizing update...");
@@ -792,7 +803,7 @@ const updater = {
       utils.updateProgress(100, "Update completed successfully!");
       utils.showStatus(
         elements.updateStatus,
-        "Update completed! Device will restart automatically.",
+        `Update completed in ${totalTime.toFixed(2)}s (${avgSpeedMbps} MB/s)! Device will restart automatically.`,
         "success"
       );
 
@@ -836,6 +847,30 @@ const updater = {
       } catch (abortError) {
         console.warn("Failed to abort update after error:", abortError);
       }
+    }
+  },
+
+  /**
+   * OPTIMIZED: Enhanced chunk sending with minimal overhead
+   * @param {string} base64Chunk - Base64 encoded chunk data
+   * @param {number} chunkIndex - Index of the chunk being sent
+   * @returns {Promise<Object>} - Response from device
+   */
+  async sendChunkOptimized(base64Chunk, chunkIndex) {
+    try {
+      const chunkResponse = await serial.sendCommand(
+        SERIAL_COMMANDS.SEND_CHUNK,
+        base64Chunk
+      );
+
+      if (!chunkResponse || !chunkResponse.success) {
+        throw new Error(`Chunk ${chunkIndex + 1} rejected: ${chunkResponse?.message || 'Unknown error'}`);
+      }
+
+      return chunkResponse;
+    } catch (error) {
+      console.error(`Chunk ${chunkIndex + 1} failed:`, error);
+      throw error;
     }
   },
 
@@ -1064,6 +1099,11 @@ function init() {
   utils.hideStatus(elements.connectionStatus);
   utils.hideStatus(elements.updateStatus);
   utils.resetProgress();
+
+  // Log optimization status
+  console.log("BYTE-90 Firmware Updater - OPTIMIZED VERSION");
+  console.log(`Configuration: ${SERIAL_CONFIG.baudRate} baud, ${CHUNK_SIZE}B chunks, ${BATCH_SIZE} batch size`);
+  console.log("Optimizations: Batch processing, larger chunks, reduced delays, optimized Base64 encoding");
 }
 
 /**
