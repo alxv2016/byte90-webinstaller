@@ -223,7 +223,70 @@ const serial = {
     console.log("Starting serial listener...");
     serial.startListening();
 
-    // Rest of your connection code...
+    // THIS IS THE MISSING SECTION - Device info checking:
+    try {
+      utils.showStatus(
+        elements.connectionStatus,
+        "Checking device mode...",
+        "info"
+      );
+
+      console.log("Sending GET_INFO command...");
+      const info = await serial.sendCommand(
+        SERIAL_COMMANDS.GET_INFO,
+        "",
+        5000  // 5 second timeout
+      );
+
+      if (info && info.success) {
+        deviceInfo = info;
+
+        // Check if device is in Update Mode
+        if (info.current_mode !== "Update Mode") {
+          console.log(`Device in wrong mode: ${info.current_mode}`);
+
+          // Disconnect immediately
+          await serial.disconnect();
+
+          // Show helpful message
+          utils.showStatus(
+            elements.connectionStatus,
+            `Device is in ${info.current_mode}. Please switch to Update Mode and connect again.`,
+            "warning"
+          );
+
+          return false; // Connection failed due to wrong mode
+        }
+
+        // Device is in correct mode
+        ui.updateDeviceInfo(info);
+        utils.showStatus(
+          elements.connectionStatus,
+          "Device connected successfully in Update Mode",
+          "success"
+        );
+      } else {
+        // Failed to get device info
+        await serial.disconnect();
+        utils.showStatus(
+          elements.connectionStatus,
+          "Could not verify device mode. Please ensure device is in Update Mode and try again.",
+          "error"
+        );
+        return false;
+      }
+    } catch (error) {
+      console.warn("Failed to get device info:", error);
+      await serial.disconnect();
+      utils.showStatus(
+        elements.connectionStatus,
+        "Unable to communicate with device. Please ensure device is in Update Mode and try again.",
+        "error"
+      );
+      return false;
+    }
+
+    return true;
   } catch (error) {
     console.error("Connection failed:", error);
     console.log('Error details:', {
@@ -231,7 +294,14 @@ const serial = {
       message: error.message,
       stack: error.stack
     });
-    // ... rest of error handling
+    // Ensure cleanup on connection failure
+    await serial.disconnect();
+    utils.showStatus(
+      elements.connectionStatus,
+      `Connection failed: ${error.message}`,
+      "error"
+    );
+    return false;
   }
 },
 
