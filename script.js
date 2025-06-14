@@ -894,7 +894,7 @@ const updater = {
 
         utils.updateProgress(
           transferProgress,
-          UI_MESSAGES.UPDATE.UPLOADING(Math.round(transferProgress), speedText)
+          `Uploading: ${Math.round(transferProgress)}% (${speedText})`
         );
       }
 
@@ -1128,18 +1128,18 @@ const ui = {
   checkCompatibility() {
     if ("serial" in navigator) {
       if (elements.serialSupport) {
-        elements.serialSupport.textContent = UI_MESSAGES.COMPATIBILITY.SUPPORTED;
+        elements.serialSupport.textContent = "Supported";
         elements.serialSupport.className = "status-badge supported";
       }
     } else {
       if (elements.serialSupport) {
-        elements.serialSupport.textContent = UI_MESSAGES.COMPATIBILITY.NOT_SUPPORTED;
+        elements.serialSupport.textContent = "Not Supported";
         elements.serialSupport.className = "status-badge not-supported";
       }
 
       utils.showStatus(
         elements.connectionStatus,
-        UI_MESSAGES.CONNECTION.API_NOT_SUPPORTED,
+        "Web Serial API is not supported in this browser. Please use Chrome 89+, Edge 89+, or Opera 75+.",
         "error"
       );
     }
@@ -1186,7 +1186,7 @@ function initializeEventListeners() {
   // Page visibility monitoring
   document.addEventListener("visibilitychange", () => {
     if (document.hidden && updateInProgress) {
-      console.warn(UI_MESSAGES.STATUS.PAGE_HIDDEN_WARNING);
+      console.warn("Page hidden during update - this may cause issues");
     }
   });
 
@@ -1209,7 +1209,7 @@ function initializeErrorHandlers() {
     if (updateInProgress) {
       utils.showStatus(
         elements.updateStatus,
-        UI_MESSAGES.UPDATE.GLOBAL_ERROR,
+        "An unexpected error occurred during update",
         "error"
       );
       updateInProgress = false;
@@ -1222,7 +1222,7 @@ function initializeErrorHandlers() {
     if (updateInProgress) {
       utils.showStatus(
         elements.updateStatus,
-        UI_MESSAGES.UPDATE.GLOBAL_ERROR,
+        "An unexpected error occurred during update",
         "error"
       );
       updateInProgress = false;
@@ -1238,7 +1238,7 @@ function initializeErrorHandlers() {
 function init() {
   // Initialize DOM element cache
   if (!initializeElements()) {
-    console.error(UI_MESSAGES.ELEMENTS.INIT_FAILED);
+    console.error("Failed to initialize DOM elements");
     return;
   }
 
