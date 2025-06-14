@@ -684,6 +684,23 @@ const updater = {
 
       updateInProgress = false;
       ui.updateUpdateState(false);
+
+      setTimeout(async () => {
+        try {
+          console.log("Update completed, disconnecting after delay...");
+          await serial.disconnect();
+          utils.showStatus(
+            elements.connectionStatus,
+            "Update completed successfully. Device is restarting. You can reconnect when ready.",
+            "success"
+          );
+        } catch (disconnectError) {
+          console.warn(
+            "Failed to disconnect after successful update:",
+            disconnectError
+          );
+        }
+      }, 2000);
     } catch (error) {
       console.error("Update failed:", error);
       utils.showStatus(
@@ -827,7 +844,7 @@ function initializeEventListeners() {
   window.addEventListener("beforeunload", (e) => {
     if (updateInProgress) {
       e.preventDefault();
-      return ''; 
+      return "";
     }
   });
 }
