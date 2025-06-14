@@ -244,7 +244,7 @@ main {
 .card__description {
   position: relative;
   font-size: var(--body-02);
-  text-align: center;
+  text-align: left;
 }
 
 .card__body {
@@ -372,7 +372,7 @@ main {
   font-size: var(--body-01);
 }
 
-.btn.btn-disabled {
+.btn.btn-disabled, .btn:disabled {
   background-color: var(--c-gray-400);
   color: var(--c-gray-500);
   cursor: default;
@@ -537,11 +537,17 @@ main {
   border-radius: var(--border-radius);
 }
 
+.compatibility-status ~ p {
+  margin-top: var(--spacing-sm);
+  text-align: left;
+  font-size: var(--caption);
+}
+
 .status-badge {
   padding: var(--spacing-2xs) var(--spacing-sm);
   border-radius: var(--border-radius);
-  font-size: var(--caption);
   font-weight: 600;
+  color: var(--c-success-text);
 }
 
 .btn:disabled {
