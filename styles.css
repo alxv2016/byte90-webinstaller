@@ -170,6 +170,7 @@ meter {
   --c-danger-bg: #f8d7da;
   --c-background: #f8f9fa;
   --c-text: #212529;
+  --c-logo: #FAA52C;
 }
 
 /* Set core body defaults */
@@ -222,7 +223,7 @@ main {
   width: auto;
   height: 64px;
   border-radius: 6px;
-  color: var(--c-info-text);
+  color: var(--c-logo);
   overflow: hidden;
 
   svg {
@@ -569,9 +570,13 @@ main {
 }
 
 .info-label {
-  font-weight: 600;
-  color: var(--c-gray-600);
+  color: var(--c-gray-800);
   margin-right: var(--spacing-xs);
+}
+
+.info-value {
+  color: var(--c-gray-800);
+  font-weight: 600;
 }
 
 @media (max-width: 576px) {
