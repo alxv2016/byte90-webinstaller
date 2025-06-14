@@ -727,11 +727,10 @@ const updater = {
 
         if (i % 20 === 0 || i === totalChunks - 1) {
           const transferProgress = 10 + (i / totalChunks) * 80;
-          const elapsed = (performance.now() - startTime) / 1000;
 
           utils.updateProgress(
             transferProgress,
-            `Uploading: ${Math.round(transferProgress)}% Don't disconnect device.`
+            `Uploading: ${Math.round(transferProgress)}% Do not disconnect device.`
           );
         }
 
