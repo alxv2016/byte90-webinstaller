@@ -174,184 +174,156 @@ const serial = {
   pendingCommand: null,
 
   async connect() {
-    try {
-      // Clean up any existing connection first
-      if (isConnected || serialPort) {
-        console.log("Cleaning up existing connection...");
-        await serial.disconnect();
-        // Wait a bit for cleanup to complete
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
+  try {
+    // Add more detailed logging
+    console.log('=== Starting Connection Process ===');
+    console.log('Current state:', { isConnected, serialPort: !!serialPort, reader: !!reader, writer: !!writer });
 
-      if (!navigator.serial) {
-        throw new Error("Web Serial API not supported");
-      }
-
-      console.log("Requesting serial port...");
-      serialPort = await navigator.serial.requestPort();
-
-      console.log("Opening serial port...");
-      await serialPort.open({
-        baudRate: 230400,
-        dataBits: 8,
-        stopBits: 1,
-        parity: "none",
-        flowControl: "none",
-      });
-
-      reader = serialPort.readable.getReader();
-      writer = serialPort.writable.getWriter();
-
-      isConnected = true;
-      ui.updateConnectionState(true);
-
-      console.log("Starting serial listener...");
-      serial.startListening();
-
-      try {
-        utils.showStatus(
-          elements.connectionStatus,
-          "Checking device mode...",
-          "info"
-        );
-
-        console.log("Sending GET_INFO command...");
-        const info = await serial.sendCommand(
-          SERIAL_COMMANDS.GET_INFO,
-          "",
-          5000 // Increase timeout to 5 seconds
-        );
-
-        if (info && info.success) {
-          deviceInfo = info;
-
-          // Check if device is in Update Mode
-          if (info.current_mode !== "Update Mode") {
-            console.log(`Device in wrong mode: ${info.current_mode}`);
-
-            // Disconnect immediately
-            await serial.disconnect();
-
-            // Show helpful message
-            utils.showStatus(
-              elements.connectionStatus,
-              `Device is in ${info.current_mode}. Please switch to Update Mode and connect again.`,
-              "warning"
-            );
-
-            return false;
-          }
-
-          // Device is in correct mode
-          ui.updateDeviceInfo(info);
-          utils.showStatus(
-            elements.connectionStatus,
-            "Device connected successfully in Update Mode",
-            "success"
-          );
-        } else {
-          // Failed to get device info
-          await serial.disconnect();
-          utils.showStatus(
-            elements.connectionStatus,
-            "Could not verify device mode. Please ensure device is in Update Mode and try again.",
-            "error"
-          );
-          return false;
-        }
-      } catch (error) {
-        console.warn("Failed to get device info:", error);
-        await serial.disconnect();
-        utils.showStatus(
-          elements.connectionStatus,
-          "Unable to communicate with device. Please ensure device is in Update Mode and try again.",
-          "error"
-        );
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error("Connection failed:", error);
-      // Ensure cleanup on connection failure
+    // Clean up any existing connection first
+    if (isConnected || serialPort) {
+      console.log("Cleaning up existing connection...");
       await serial.disconnect();
-      utils.showStatus(
-        elements.connectionStatus,
-        `Connection failed: ${error.message}`,
-        "error"
-      );
-      return false;
+      // Wait longer for cleanup
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Increased from 500ms
     }
-  },
+
+    if (!navigator.serial) {
+      throw new Error("Web Serial API not supported");
+    }
+
+    console.log("Requesting serial port...");
+    serialPort = await navigator.serial.requestPort();
+    
+    // Check if port is already open (shouldn't be, but let's verify)
+    console.log('Port state before open:', {
+      readable: !!serialPort.readable,
+      writable: !!serialPort.writable
+    });
+
+    console.log("Opening serial port...");
+    await serialPort.open({
+      baudRate: 230400,
+      dataBits: 8,
+      stopBits: 1,
+      parity: "none",
+      flowControl: "none",
+    });
+
+    console.log('Port state after open:', {
+      readable: !!serialPort.readable,
+      writable: !!serialPort.writable
+    });
+
+    reader = serialPort.readable.getReader();
+    writer = serialPort.writable.getWriter();
+
+    isConnected = true;
+    ui.updateConnectionState(true);
+
+    console.log("Starting serial listener...");
+    serial.startListening();
+
+    // Rest of your connection code...
+  } catch (error) {
+    console.error("Connection failed:", error);
+    console.log('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+    // ... rest of error handling
+  }
+},
 
   async disconnect() {
-    // Prevent multiple simultaneous disconnections
-    if (!isConnected) {
-      console.log("Already disconnected");
-      return true;
+  console.log('=== Starting Disconnect Process ===');
+  console.log('Current state:', { isConnected, serialPort: !!serialPort, reader: !!reader, writer: !!writer });
+
+  // Prevent multiple simultaneous disconnections
+  if (!isConnected && !serialPort) {
+    console.log("Already disconnected");
+    return true;
+  }
+
+  try {
+    console.log("Starting disconnect process...");
+    isConnected = false; // Set this first to prevent race conditions
+
+    // Stop any pending operations first
+    if (serial.pendingCommand) {
+      console.log("Clearing pending command");
+      serial.pendingCommand = null;
     }
 
-    try {
-      console.log("Starting disconnect process...");
-      isConnected = false; // Set this first to prevent race conditions
-
-      if (reader) {
-        try {
-          await reader.cancel();
-        } catch (e) {
-          console.warn("Reader cancel failed:", e);
-        }
-        try {
-          reader.releaseLock();
-        } catch (e) {
-          console.warn("Reader release failed:", e);
-        }
-        reader = null;
+    // Cancel reader first (this stops the listening loop)
+    if (reader) {
+      console.log("Cancelling reader...");
+      try {
+        await reader.cancel();
+        console.log("Reader cancelled successfully");
+      } catch (e) {
+        console.warn("Reader cancel failed:", e);
       }
-
-      if (writer) {
-        try {
-          await writer.close();
-        } catch (e) {
-          console.warn("Writer close failed:", e);
-        }
-        writer = null;
+      
+      try {
+        reader.releaseLock();
+        console.log("Reader lock released");
+      } catch (e) {
+        console.warn("Reader release failed:", e);
       }
-
-      if (serialPort) {
-        try {
-          await serialPort.close();
-        } catch (e) {
-          console.warn("Serial port close failed:", e);
-        }
-        serialPort = null;
-      }
-
-      // Clear any pending commands
-      serial.pendingCommand = null;
-      deviceInfo = null;
-
-      ui.updateConnectionState(false);
-
-      if (elements.firmwareFile) {
-        elements.firmwareFile.value = "";
-      }
-
-      console.log("Disconnect completed successfully");
-      return true;
-    } catch (error) {
-      console.error("Disconnect failed:", error);
-      // Force cleanup even if there were errors
-      isConnected = false;
       reader = null;
-      writer = null;
-      serialPort = null;
-      serial.pendingCommand = null;
-      deviceInfo = null;
-      ui.updateConnectionState(false);
-      return false;
     }
-  },
+
+    // Close writer
+    if (writer) {
+      console.log("Closing writer...");
+      try {
+        await writer.close();
+        console.log("Writer closed successfully");
+      } catch (e) {
+        console.warn("Writer close failed:", e);
+      }
+      writer = null;
+    }
+
+    // Wait a bit before closing the port
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Close the serial port
+    if (serialPort) {
+      console.log("Closing serial port...");
+      try {
+        await serialPort.close();
+        console.log("Serial port closed successfully");
+      } catch (e) {
+        console.warn("Serial port close failed:", e);
+      }
+      serialPort = null;
+    }
+
+    // Clear any remaining state
+    deviceInfo = null;
+    ui.updateConnectionState(false);
+
+    if (elements.firmwareFile) {
+      elements.firmwareFile.value = "";
+    }
+
+    console.log("=== Disconnect completed successfully ===");
+    return true;
+  } catch (error) {
+    console.error("Disconnect failed:", error);
+    // Force cleanup even if there were errors
+    isConnected = false;
+    reader = null;
+    writer = null;
+    serialPort = null;
+    serial.pendingCommand = null;
+    deviceInfo = null;
+    ui.updateConnectionState(false);
+    return false;
+  }
+},
 
   async sendCommand(command, data = "", customTimeout = COMMAND_TIMEOUT) {
     if (!writer) {
