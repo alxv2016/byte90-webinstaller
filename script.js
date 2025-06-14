@@ -47,7 +47,7 @@ const SERIAL_CONFIG = {
 /**
  * Transfer settings optimized for speed and reliability
  */
-const CHUNK_SIZE = 256; // Bytes per chunk - balanced for reliability
+const CHUNK_SIZE = 512; // Bytes per chunk - balanced for reliability
 const COMMAND_TIMEOUT = 10000; // Default command timeout (10 seconds)
 const CHUNK_TIMEOUT = 10000; // Chunk transfer timeout (10 seconds)
 const MAX_RETRIES = 2; // Maximum retry attempts for failed operations
