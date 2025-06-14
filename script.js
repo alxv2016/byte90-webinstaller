@@ -1157,20 +1157,20 @@ const ui = {
 function initializeEventListeners() {
   // Connection controls
   if (elements.connectBtn) {
-    elements.connectBtn.addEventListener("click", serial.connect);
+    elements.connectBtn.addEventListener("click", () => serial.connect());
   }
 
   if (elements.disconnectBtn) {
-    elements.disconnectBtn.addEventListener("click", serial.disconnect);
+    elements.disconnectBtn.addEventListener("click", () => serial.disconnect());
   }
 
   // Update controls
   if (elements.uploadBtn) {
-    elements.uploadBtn.addEventListener("click", updater.startUpdate);
+    elements.uploadBtn.addEventListener("click", () => updater.startUpdate());
   }
 
   if (elements.abortBtn) {
-    elements.abortBtn.addEventListener("click", updater.abortUpdate);
+    elements.abortBtn.addEventListener("click", () => updater.abortUpdate());
   }
 
   // File selection handling
