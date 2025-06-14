@@ -580,8 +580,7 @@ const serial = {
 
     if (isProgress) {
       const percent = response.progress || 0;
-      const message = `${percent}%`;
-      utils.updateProgress(percent, message);
+      utils.updateProgress(percent);
 
       if (response.completed) {
         updateInProgress = false;
