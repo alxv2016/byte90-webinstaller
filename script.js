@@ -426,6 +426,9 @@ const serial = {
       if (elements.firmwareFile) {
         elements.firmwareFile.value = "";
       }
+      if (elements.updateType) {
+        elements.updateType.value = "firmware"; // Reset to default firmware type
+      }
 
       return true;
     } catch (error) {
@@ -730,7 +733,9 @@ const updater = {
 
           utils.updateProgress(
             transferProgress,
-            `Uploading: ${Math.round(transferProgress)}% Do not disconnect device.`
+            `Uploading: ${Math.round(
+              transferProgress
+            )}% Do not disconnect device.`
           );
         }
 
