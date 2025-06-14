@@ -52,7 +52,7 @@ function initializeElements() {
     'updateSection', 'updateType', 'firmwareFile', 'uploadBtn', 'abortBtn',
     'progressContainer', 'uploadProgress', 'progressText', 'updateStatus',
     'compatibilityStatus', 'serialSupport', 'firmwareVersion', 'chipModel',
-    'currentMode', 'freeHeap'
+    'availableSpace', 'freeHeap'
   ];
 
   elementIds.forEach(id => {
@@ -583,7 +583,7 @@ const ui = {
     if (info) {
       if (elements.firmwareVersion) elements.firmwareVersion.textContent = info.firmware_version || '-';
       if (elements.chipModel) elements.chipModel.textContent = info.chip_model || '-';
-      if (elements.currentMode) elements.currentMode.textContent = info.current_mode || '-';
+      if (elements.availableSpace) elements.availableSpace.textContent = info.flash_available || '-';
       if (elements.freeHeap) elements.freeHeap.textContent = info.free_heap ? utils.formatBytes(info.free_heap) : '-';
     }
   },
@@ -591,7 +591,7 @@ const ui = {
   clearDeviceInfo() {
     if (elements.firmwareVersion) elements.firmwareVersion.textContent = '-';
     if (elements.chipModel) elements.chipModel.textContent = '-';
-    if (elements.currentMode) elements.currentMode.textContent = '-';
+    if (elements.availableSpace) elements.availableSpace.textContent = '-';
     if (elements.freeHeap) elements.freeHeap.textContent = '-';
   },
 
