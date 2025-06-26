@@ -1,0 +1,24 @@
+.button-icon {
+  position: relative;
+  background-color: transparent;
+  color: var(--color-text);
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  padding: 0;
+  transition: background-color 220ms ease;
+}
+
+.button-icon:hover {
+  background-color: var(--color-bg-hover);
+  color: var(--color-text);
+}
+
+.button-icon:active,
+.button-icon:focus {
+  background-color: var(--color-bg-active);
+}
+
+.button-icon.button-icon--ghost {
+  border-color: var(--color-border);
+}
