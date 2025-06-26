@@ -3,33 +3,14 @@ import type {
   SerialConfig,
   DeviceInfo,
   SerialResponse,
-  ConnectionStatus,
+  StatusMessage,
+  UseSerialProps,
+  UseSerialReturn,
+  SerialCommands,
 } from '../data/webserial.interface';
 
-interface UseSerialProps {
-  onConnectionChange: (connected: boolean) => void;
-  onDeviceInfo: (info: DeviceInfo | null) => void;
-  onConnectionStatus: (status: ConnectionStatus) => void;
-}
-
-interface UseSerialReturn {
-  connect: () => Promise<boolean>;
-  disconnect: () => Promise<boolean>;
-  sendCommand: (
-    command: string,
-    data?: string,
-    customTimeout?: number
-  ) => Promise<SerialResponse>;
-  sendCommandWithRetry: (
-    command: string,
-    data?: string,
-    retries?: number
-  ) => Promise<SerialResponse>;
-  isConnected: boolean;
-  SERIAL_COMMANDS: typeof SERIAL_COMMANDS;
-}
 // Serial command constants
-const SERIAL_COMMANDS = {
+const SERIAL_COMMANDS: SerialCommands = {
   GET_INFO: 'GET_INFO',
   GET_STATUS: 'GET_STATUS',
   START_UPDATE: 'START_UPDATE',
@@ -87,7 +68,7 @@ export const useSerial = ({
   );
 
   const updateConnectionStatus = useCallback(
-    (message: string, type: ConnectionStatus['type'] = 'info') => {
+    (message: string, type: StatusMessage['type'] = 'info') => {
       onConnectionStatus({ message, type });
     },
     [onConnectionStatus]

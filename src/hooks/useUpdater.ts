@@ -1,37 +1,11 @@
 import { useCallback, useEffect } from 'react';
 import type {
   SerialResponse,
-  SerialCommands,
-  UpdateStatus,
-  ProgressUpdate,
+  StatusMessage,
+  UseUpdaterProps,
+  UseUpdaterReturn,
+  UpdateType,
 } from '../data/webserial.interface';
-
-interface SerialInterface {
-  sendCommand: (command: string, data?: string) => Promise<SerialResponse>;
-  sendCommandWithRetry: (
-    command: string,
-    data?: string,
-    retries?: number
-  ) => Promise<SerialResponse>;
-  disconnect: () => Promise<void>;
-  SERIAL_COMMANDS: SerialCommands;
-}
-
-interface UseUpdaterProps {
-  serial: SerialInterface;
-  onUpdateStatus: (status: UpdateStatus) => void;
-  onProgress: (progress: ProgressUpdate) => void;
-  onShowProgress: (show: boolean) => void;
-  onUpdateInProgress: (inProgress: boolean) => void;
-}
-
-interface UseUpdaterReturn {
-  startUpdate: (
-    file: File,
-    updateType: 'firmware' | 'filesystem'
-  ) => Promise<void>;
-  abortUpdate: () => Promise<void>;
-}
 
 // Constants
 const CHUNK_SIZE = 1024;
@@ -63,7 +37,7 @@ export const useUpdater = ({
   onUpdateInProgress,
 }: UseUpdaterProps): UseUpdaterReturn => {
   const updateStatus = useCallback(
-    (message: string, type: UpdateStatus['type'] = 'info') => {
+    (message: string, type: StatusMessage['type'] = 'info') => {
       onUpdateStatus({ message, type });
     },
     [onUpdateStatus]
@@ -107,10 +81,7 @@ export const useUpdater = ({
   }, [onUpdateInProgress, updateStatus]);
 
   const startUpdate = useCallback(
-    async (
-      file: File,
-      updateType: 'firmware' | 'filesystem'
-    ): Promise<void> => {
+    async (file: File, updateType: UpdateType): Promise<void> => {
       if (!file) {
         updateStatus('Please select a firmware file', 'error');
         return;
@@ -204,10 +175,11 @@ export const useUpdater = ({
           const base64Chunk = arrayBufferToBase64(chunk);
 
           if (i % 50 === 0 || i === totalChunks - 1) {
-            const transferProgress = 10 + (i / totalChunks) * 80;
+            const transferProgress =
+              10 + (bytesTransferred / arrayBuffer.byteLength) * 80;
             updateProgress(
               transferProgress,
-              `Uploading: ${Math.round(transferProgress)}% Do not disconnect device.`
+              `Uploading: ${Math.round(transferProgress)}% (${formatBytes(bytesTransferred)}/${formatBytes(arrayBuffer.byteLength)})`
             );
           }
 
@@ -280,7 +252,7 @@ export const useUpdater = ({
 
         setTimeout(async () => {
           try {
-            await serial.disconnect(); // This line is now valid
+            await serial.disconnect();
             updateStatus(
               'Update completed successfully. Device is restarting. You can reconnect when ready.',
               'success'
