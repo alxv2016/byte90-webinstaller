@@ -18,15 +18,34 @@ export interface DeviceInfo {
   [key: string]: unknown;
 }
 
-export interface SerialResponse {
-  success: boolean;
-  message?: string;
-  state?: string;
-  completed?: boolean;
-  [key: string]: unknown;
-}
-
 export interface ConnectionStatus {
   message: string;
   type: 'info' | 'success' | 'warning' | 'error';
+}
+
+export interface UpdateStatus {
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error' | '';
+}
+
+export interface ProgressUpdate {
+  percent: number;
+  message: string;
+}
+
+export interface SerialResponse {
+  success: boolean;
+  message?: string;
+  completed?: boolean;
+  update_active?: boolean;
+  state?: string;
+  [key: string]: unknown;
+}
+
+export interface SerialCommands {
+  GET_STATUS: string;
+  ABORT_UPDATE: string;
+  START_UPDATE: string;
+  SEND_CHUNK: string;
+  FINISH_UPDATE: string;
 }
