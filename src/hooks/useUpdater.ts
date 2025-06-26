@@ -4,7 +4,7 @@ import type {
   SerialCommands,
   UpdateStatus,
   ProgressUpdate,
-} from '../data/webserial.interface'; // Adjust the import path as necessary
+} from '../data/webserial.interface';
 
 interface SerialInterface {
   sendCommand: (command: string, data?: string) => Promise<SerialResponse>;
