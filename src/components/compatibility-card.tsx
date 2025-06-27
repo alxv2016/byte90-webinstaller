@@ -96,57 +96,6 @@ const CompatibilityCard: React.FC<CompatibilityCardProps> = ({
             >
               {getRecommendation()}
             </p>
-
-            <div className='browser-details'>
-              <div className='browser-section'>
-                <h3 className='browser-section__title'>
-                  ✅ Supported Browsers:
-                </h3>
-                <ul className='browser-list' role='list'>
-                  {getSupportedBrowsers().map((browser, index) => (
-                    <li key={index} className='browser-list__item'>
-                      <strong>{browser}</strong>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className='browser-section'>
-                <h3 className='browser-section__title'>❌ Not Supported:</h3>
-                <ul className='browser-list' role='list'>
-                  {getUnsupportedBrowsers().map((browser, index) => (
-                    <li key={index} className='browser-list__item'>
-                      {browser}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            {!isSerialSupported && (
-              <div className='compatibility-warning' role='alert'>
-                <strong>Action Required:</strong> To use this firmware updater,
-                please download and install{' '}
-                <a
-                  href='https://www.google.com/chrome/'
-                  target='_blank'
-                  rel='noopener noreferrer'
-                  aria-label='Download Google Chrome (opens in new tab)'
-                >
-                  Google Chrome
-                </a>{' '}
-                or{' '}
-                <a
-                  href='https://www.microsoft.com/edge'
-                  target='_blank'
-                  rel='noopener noreferrer'
-                  aria-label='Download Microsoft Edge (opens in new tab)'
-                >
-                  Microsoft Edge
-                </a>
-                .
-              </div>
-            )}
           </>
         )}
       </div>
