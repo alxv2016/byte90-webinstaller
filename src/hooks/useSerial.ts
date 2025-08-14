@@ -9,7 +9,7 @@ import type {
   SerialCommands,
 } from '../data/webserial.interface';
 
-// Serial command constants
+// Serial command constants - must match ESP32 firmware definitions
 const SERIAL_COMMANDS: SerialCommands = {
   GET_INFO: 'GET_INFO',
   GET_STATUS: 'GET_STATUS',
@@ -24,13 +24,23 @@ const SERIAL_COMMANDS: SerialCommands = {
   VALIDATE_FIRMWARE: 'VALIDATE_FIRMWARE',
 } as const;
 
+// Response prefixes for parsing ESP32 responses
 const RESPONSE_PREFIXES = {
   OK: 'OK:',
   ERROR: 'ERROR:',
   PROGRESS: 'PROGRESS:',
 } as const;
 
-const SERIAL_CONFIG: SerialConfig = {
+// Try with hardware flow control first, then without
+const SERIAL_CONFIG_WITH_FLOW: SerialConfig = {
+  baudRate: 921600,
+  dataBits: 8,
+  stopBits: 1,
+  parity: 'none',
+  flowControl: 'hardware', // Try hardware flow control first
+};
+
+const SERIAL_CONFIG_NO_FLOW: SerialConfig = {
   baudRate: 921600,
   dataBits: 8,
   stopBits: 1,
@@ -88,6 +98,8 @@ export const useSerial = ({
         const commandString = data ? `${command}:${data}\n` : `${command}\n`;
         const encoder = new TextEncoder();
 
+        console.log('Sending command:', JSON.stringify(commandString));
+
         const timeoutMs =
           command === SERIAL_COMMANDS.SEND_CHUNK
             ? CHUNK_TIMEOUT
@@ -109,8 +121,15 @@ export const useSerial = ({
           }
         };
 
-        writerRef
-          .current!.write(encoder.encode(commandString))
+        if (!writerRef.current) {
+          clearTimeout(timeout);
+          pendingCommandRef.current = null;
+          reject(new Error('Writer became unavailable'));
+          return;
+        }
+
+        writerRef.current
+          .write(encoder.encode(commandString))
           .catch((error: Error) => {
             clearTimeout(timeout);
             pendingCommandRef.current = null;
@@ -148,13 +167,20 @@ export const useSerial = ({
   );
 
   const handleResponse = useCallback((line: string): void => {
+    console.log('Processing line:', JSON.stringify(line));
     let response: SerialResponse | null = null;
     let isProgress = false;
+
+    // The device should send responses like:
+    // OK:{"success":true,"message":"BYTE-90 Serial Interface Ready"}
+    // ERROR:{"success":false,"message":"Error message"}
+    // PROGRESS:{"success":true,"completed":false,...}
 
     if (line.startsWith(RESPONSE_PREFIXES.OK)) {
       const jsonStr = line.substring(RESPONSE_PREFIXES.OK.length);
       try {
         response = JSON.parse(jsonStr) as SerialResponse;
+        console.log('Parsed OK response:', response);
       } catch (e) {
         console.error('Failed to parse OK response:', jsonStr, e);
         return;
@@ -164,6 +190,7 @@ export const useSerial = ({
       try {
         response = JSON.parse(jsonStr) as SerialResponse;
         response.success = false;
+        console.log('Parsed ERROR response:', response);
       } catch (e) {
         console.error('Failed to parse ERROR response:', jsonStr, e);
         return;
@@ -173,12 +200,26 @@ export const useSerial = ({
       try {
         response = JSON.parse(jsonStr) as SerialResponse;
         isProgress = true;
+        console.log('Parsed PROGRESS response:', response);
       } catch (e) {
         console.error('Failed to parse PROGRESS response:', jsonStr, e);
         return;
       }
     } else {
-      return;
+      // Device might send initialization message or other non-prefixed data
+      console.log(
+        'Unrecognized response format (might be init message):',
+        line
+      );
+
+      // Try parsing as direct JSON (for initialization messages)
+      try {
+        response = JSON.parse(line) as SerialResponse;
+        console.log('Parsed direct JSON response:', response);
+      } catch (e) {
+        console.log('Not JSON either, ignoring:', line);
+        return;
+      }
     }
 
     if (isProgress) {
@@ -190,6 +231,9 @@ export const useSerial = ({
       const handler = pendingCommandRef.current;
       pendingCommandRef.current = null;
       handler(response);
+    } else {
+      // Handle unsolicited responses (like initialization messages)
+      console.log('Received unsolicited response:', response);
     }
   }, []);
 
@@ -203,8 +247,13 @@ export const useSerial = ({
 
         if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
+        const chunk = decoder.decode(value, { stream: true });
+        console.log('Raw data received:', JSON.stringify(chunk));
+        buffer += chunk;
 
+        console.log('Buffer state:', JSON.stringify(buffer));
+
+        // Split on newlines - exactly like working code
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
 
@@ -225,7 +274,7 @@ export const useSerial = ({
     try {
       updateConnectionStatus('', 'info');
 
-      // Clean up any existing connection first
+      // Clean up any existing connection first - like working code
       if (isConnected || serialPortRef.current) {
         await disconnect();
         await new Promise<void>(resolve => setTimeout(resolve, 1000));
@@ -235,13 +284,42 @@ export const useSerial = ({
         throw new Error('Web Serial API not supported');
       }
 
+      // Request port without filters
       const port = await navigator.serial.requestPort();
-      await port.open(SERIAL_CONFIG);
+
+      // Try connecting with hardware flow control first
+      let connectionSuccess = false;
+      let lastError = null;
+
+      console.log('Trying connection with hardware flow control...');
+      try {
+        await port.open(SERIAL_CONFIG_WITH_FLOW);
+        connectionSuccess = true;
+        console.log('Connected with hardware flow control');
+      } catch (error) {
+        console.log('Hardware flow control failed, trying without:', error);
+        lastError = error;
+
+        try {
+          await port.open(SERIAL_CONFIG_NO_FLOW);
+          connectionSuccess = true;
+          console.log('Connected without flow control');
+        } catch (error2) {
+          console.log('Connection without flow control also failed:', error2);
+          lastError = error2;
+        }
+      }
+
+      if (!connectionSuccess) {
+        throw lastError || new Error('Failed to open serial port');
+      }
+
       serialPortRef.current = port;
 
       if (port.readable === null || port.writable === null) {
         throw new Error('Port is not readable or writable');
       }
+
       readerRef.current = port.readable.getReader();
       writerRef.current = port.writable.getWriter();
 
@@ -256,10 +334,30 @@ export const useSerial = ({
       try {
         updateConnectionStatus('Checking device mode...', 'info');
 
+        console.log('Attempting to send GET_INFO command...');
+
+        // Try sending some test data first to see if device responds at all
+        console.log('Sending test data to check communication...');
+        const encoder = new TextEncoder();
+
+        // Send a few different test patterns
+        await writerRef.current!.write(encoder.encode('\n'));
+        await new Promise<void>(resolve => setTimeout(resolve, 500));
+
+        await writerRef.current!.write(encoder.encode('\r\n'));
+        await new Promise<void>(resolve => setTimeout(resolve, 500));
+
+        await writerRef.current!.write(encoder.encode('?\n'));
+        await new Promise<void>(resolve => setTimeout(resolve, 500));
+
+        await writerRef.current!.write(encoder.encode('help\n'));
+        await new Promise<void>(resolve => setTimeout(resolve, 1000));
+
+        // Now try the actual command
         const info = (await sendCommand(
           SERIAL_COMMANDS.GET_INFO,
           '',
-          5000
+          5000 // Match working code timeout
         )) as DeviceInfo;
 
         if (info && info.success) {
@@ -288,7 +386,6 @@ export const useSerial = ({
           return false;
         }
       } catch (error) {
-        await serialPortRef.current.close();
         console.warn('Failed to get device info:', error);
         await disconnect();
         updateConnectionStatus(
@@ -326,10 +423,12 @@ export const useSerial = ({
     try {
       setIsConnected(false);
 
+      // Clear any pending commands
       if (pendingCommandRef.current) {
         pendingCommandRef.current = null;
       }
 
+      // Close reader with proper error handling - like working code
       if (readerRef.current) {
         try {
           await readerRef.current.cancel();
@@ -345,6 +444,7 @@ export const useSerial = ({
         readerRef.current = null;
       }
 
+      // Close writer with proper error handling
       if (writerRef.current) {
         try {
           await writerRef.current.close();
@@ -354,10 +454,11 @@ export const useSerial = ({
         writerRef.current = null;
       }
 
+      // Wait before closing port - exactly like working code
       await new Promise<void>(resolve => setTimeout(resolve, 100));
 
+      // Close the serial port
       const currentPort = serialPortRef.current;
-
       if (currentPort) {
         try {
           await currentPort.close();
