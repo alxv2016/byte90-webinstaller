@@ -297,7 +297,7 @@ export const useSerial = ({
     try {
       updateConnectionStatus('', 'info');
 
-      // Clean up any existing connection first - like working code
+      // Clean up any existing connection first
       if (isConnected || serialPortRef.current) {
         await disconnect();
         await new Promise<void>(resolve => setTimeout(resolve, 1000));
@@ -349,38 +349,28 @@ export const useSerial = ({
       setIsConnected(true);
       onConnectionChange(true);
 
-      // Start listening without awaiting to prevent blocking
-      startListening().catch(error => {
-        console.error('Error in startListening:', error);
-      });
+      // CRITICAL FIX: Start listening in a separate microtask
+      setTimeout(() => {
+        startListening().catch(error => {
+          console.error('Error in startListening:', error);
+        });
+      }, 0);
 
       try {
         updateConnectionStatus('Checking device mode...', 'info');
 
+        console.log('Waiting for device initialization...');
+
+        // Wait for the device to send its initialization message
+        await new Promise<void>(resolve => setTimeout(resolve, 2000));
+
         console.log('Attempting to send GET_INFO command...');
 
-        // Try sending some test data first to see if device responds at all
-        console.log('Sending test data to check communication...');
-        const encoder = new TextEncoder();
-
-        // Send a few different test patterns
-        await writerRef.current!.write(encoder.encode('\n'));
-        await new Promise<void>(resolve => setTimeout(resolve, 500));
-
-        await writerRef.current!.write(encoder.encode('\r\n'));
-        await new Promise<void>(resolve => setTimeout(resolve, 500));
-
-        await writerRef.current!.write(encoder.encode('?\n'));
-        await new Promise<void>(resolve => setTimeout(resolve, 500));
-
-        await writerRef.current!.write(encoder.encode('help\n'));
-        await new Promise<void>(resolve => setTimeout(resolve, 1000));
-
-        // Now try the actual command
+        // Send GET_INFO with longer timeout
         const info = (await sendCommand(
           SERIAL_COMMANDS.GET_INFO,
           '',
-          5000 // Match working code timeout
+          10000 // Use 10 second timeout like the working demo
         )) as DeviceInfo;
 
         if (info && info.success) {
@@ -434,6 +424,7 @@ export const useSerial = ({
     updateConnectionStatus,
     sendCommand,
     startListening,
+    // Remove disconnect from dependency array to avoid circular dependency
   ]);
 
   const disconnect = useCallback(async (): Promise<boolean> => {
