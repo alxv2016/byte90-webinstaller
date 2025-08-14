@@ -240,26 +240,48 @@ export const useSerial = ({
   const startListening = useCallback(async (): Promise<void> => {
     const decoder = new TextDecoder();
     let buffer = '';
+    let shouldContinue = true;
 
     try {
-      while (readerRef.current && isConnected) {
-        const { value, done } = await readerRef.current.read();
+      // CRITICAL: Store the reader reference locally and don't depend on React state
+      const currentReader = readerRef.current;
 
-        if (done) break;
+      if (!currentReader) {
+        console.error('No reader available for listening');
+        return;
+      }
 
-        const chunk = decoder.decode(value, { stream: true });
-        console.log('Raw data received:', JSON.stringify(chunk));
-        buffer += chunk;
+      console.log('Reader confirmed, starting read loop...');
 
-        console.log('Buffer state:', JSON.stringify(buffer));
+      while (currentReader && shouldContinue) {
+        try {
+          const { value, done } = await currentReader.read();
 
-        // Split on newlines - exactly like working code
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+          if (done) {
+            console.log('Reader done (stream closed), breaking loop');
+            break;
+          }
 
-        for (const line of lines) {
-          if (line.trim()) {
-            handleResponse(line.trim());
+          const chunk = decoder.decode(value, { stream: true });
+          console.log('Raw data received:', JSON.stringify(chunk));
+          buffer += chunk;
+
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (line.trim()) {
+              console.log('Processing line:', JSON.stringify(line.trim()));
+              handleResponse(line.trim());
+            }
+          }
+        } catch (readError) {
+          if ((readError as Error).name === 'AbortError') {
+            console.log('Read aborted (normal during disconnect)');
+            break;
+          } else {
+            console.error('Read error:', readError);
+            break;
           }
         }
       }
@@ -268,7 +290,8 @@ export const useSerial = ({
         console.error('Serial reading error:', error);
       }
     }
-  }, [isConnected, handleResponse]);
+    console.log('Stopped listening for serial data');
+  }, [handleResponse]);
 
   const connect = useCallback(async (): Promise<boolean> => {
     try {
