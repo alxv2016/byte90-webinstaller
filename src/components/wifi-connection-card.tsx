@@ -116,9 +116,11 @@ export default function WiFiConnectionCard({
 
     try {
       const connectData = `${selectedNetwork},${password}`;
+      console.log(`Attempting to connect to network: ${selectedNetwork}`);
 
       // Send actual command to device
       const response = await serial.sendCommand('WIFI_CONNECT', connectData);
+      console.log('WiFi Connect Response:', response);
 
       // Handle different response formats
       let isSuccess = false;
@@ -135,6 +137,7 @@ export default function WiFiConnectionCard({
       }
 
       if (isSuccess) {
+        console.log(`✅ Successfully connected to ${selectedNetwork}`);
         setScanStatus({
           message: `✅ Successfully connected to ${selectedNetwork}`,
           type: 'success',
@@ -146,6 +149,7 @@ export default function WiFiConnectionCard({
         setSelectedNetwork(''); // Clear selection
         setPassword(''); // Clear password
       } else {
+        console.log(`❌ Failed to connect to ${selectedNetwork}: ${message}`);
         setScanStatus({
           message: `❌ Failed to connect: ${message}`,
           type: 'error',
@@ -154,6 +158,7 @@ export default function WiFiConnectionCard({
     } catch (error) {
       // Check if error message indicates "Unknown command"
       const errorMsg = error instanceof Error ? error.message : String(error);
+      console.log(`❌ Connection error: ${errorMsg}`);
       if (errorMsg.includes('Unknown command')) {
         setScanStatus({
           message: 'WIFI_CONNECT command not supported by device firmware',
@@ -195,8 +200,10 @@ export default function WiFiConnectionCard({
     }
 
     try {
+      console.log('Attempting to disconnect from WiFi network');
       // Send actual command to device
       const response = await serial.sendCommand('WIFI_DISCONNECT');
+      console.log('WiFi Disconnect Response:', response);
 
       // Handle response (but don't change UI state based on it)
       let isSuccess = false;
@@ -211,17 +218,22 @@ export default function WiFiConnectionCard({
       }
 
       if (isSuccess) {
+        console.log('✅ Successfully disconnected from WiFi');
         setScanStatus({
           message: `✅ Force disconnected and device confirmed`,
           type: 'success',
         });
       } else {
+        console.log(`⚠️ Disconnect command sent but device error: ${message}`);
         setScanStatus({
           message: `✅ Force disconnected (device error: ${message})`,
           type: 'warning',
         });
       }
     } catch (error) {
+      console.log(
+        `⚠️ Disconnect command failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
       setScanStatus({
         message: `✅ Force disconnected (command failed: ${error instanceof Error ? error.message : 'Unknown error'})`,
         type: 'warning',

@@ -103,7 +103,6 @@ export const useSerial = ({
 
       return new Promise<SerialResponse>((resolve, reject) => {
         const commandString = data ? `${command}:${data}\n` : `${command}\n`;
-        const encoder = new TextEncoder();
 
         const timeoutMs =
           command === SERIAL_COMMANDS.SEND_CHUNK
@@ -112,16 +111,59 @@ export const useSerial = ({
               ? WIFI_SCAN_TIMEOUT
               : customTimeout;
 
+        // Log all WiFi commands
+        if (command.startsWith('WIFI_')) {
+          console.log(
+            `[useSerial] Sending ${command} Command: ${commandString.trim()}`
+          );
+          if (data) {
+            console.log(`[useSerial] ${command} Data: ${data}`);
+          }
+          console.log(`[useSerial] ${command} Timeout set to: ${timeoutMs}ms`);
+        }
+
+        const encoder = new TextEncoder();
+
         const timeout = setTimeout(() => {
+          if (command.startsWith('WIFI_')) {
+            console.log(
+              `[useSerial] ⏰ ${command} TIMEOUT after ${timeoutMs}ms - no response received`
+            );
+          }
           pendingCommandRef.current = null;
           reject(new Error(`Command timeout: ${command}`));
         }, timeoutMs);
 
         pendingCommandRef.current = (response: SerialResponse) => {
           clearTimeout(timeout);
+
+          // Log all WiFi responses
+          if (command.startsWith('WIFI_')) {
+            console.log(`[useSerial] ${command} Response Received:`, response);
+            console.log(
+              `[useSerial] ${command} Response Type:`,
+              typeof response
+            );
+            console.log(
+              `[useSerial] ${command} Response Success:`,
+              response?.success
+            );
+          }
+
           if (response && response.success !== undefined) {
+            if (command.startsWith('WIFI_')) {
+              console.log(
+                `[useSerial] ✅ ${command} Response valid - resolving`
+              );
+            }
             resolve(response);
           } else {
+            if (command.startsWith('WIFI_')) {
+              console.log(
+                `[useSerial] ❌ ${command} Invalid response - rejecting:`,
+                response
+              );
+            }
             reject(new Error(`Invalid response for ${command}`));
           }
         };
@@ -133,9 +175,23 @@ export const useSerial = ({
           return;
         }
 
+        if (command.startsWith('WIFI_')) {
+          console.log(`[useSerial] 📤 Writing ${command} to device...`);
+        }
+
         writerRef.current
           .write(encoder.encode(commandString))
+          .then(() => {
+            if (command.startsWith('WIFI_')) {
+              console.log(
+                `[useSerial] ✅ ${command} successfully written to device`
+              );
+            }
+          })
           .catch((error: Error) => {
+            if (command.startsWith('WIFI_')) {
+              console.log(`[useSerial] ❌ ${command} write failed:`, error);
+            }
             clearTimeout(timeout);
             pendingCommandRef.current = null;
             reject(error);
@@ -173,6 +229,15 @@ export const useSerial = ({
     let response: SerialResponse | null = null;
     let isProgress = false;
 
+    // Log response parsing for WiFi-related responses
+    if (
+      line.includes('WIFI') ||
+      line.includes('OK:') ||
+      line.includes('ERROR:')
+    ) {
+      console.log(`[useSerial] 🔍 Parsing response: "${line}"`);
+    }
+
     // The device should send responses like:
     // OK:{"success":true,"message":"BYTE-90 Serial Interface Ready"}
     // ERROR:{"success":false,"message":"Error message"}
@@ -180,33 +245,97 @@ export const useSerial = ({
 
     if (line.startsWith(RESPONSE_PREFIXES.OK)) {
       const jsonStr = line.substring(RESPONSE_PREFIXES.OK.length);
+      if (line.includes('WIFI')) {
+        console.log(`[useSerial] 🟢 Parsing OK response, JSON: "${jsonStr}"`);
+      }
       try {
         response = JSON.parse(jsonStr) as SerialResponse;
+        if (line.includes('WIFI')) {
+          console.log(
+            `[useSerial] ✅ OK response parsed successfully:`,
+            response
+          );
+        }
       } catch (e) {
+        if (line.includes('WIFI')) {
+          console.log(
+            `[useSerial] ❌ Failed to parse OK JSON: "${jsonStr}", error:`,
+            e
+          );
+        }
         return;
       }
     } else if (line.startsWith(RESPONSE_PREFIXES.ERROR)) {
       const jsonStr = line.substring(RESPONSE_PREFIXES.ERROR.length);
+      if (line.includes('WIFI')) {
+        console.log(
+          `[useSerial] 🔴 Parsing ERROR response, JSON: "${jsonStr}"`
+        );
+      }
       try {
         response = JSON.parse(jsonStr) as SerialResponse;
         response.success = false;
+        if (line.includes('WIFI')) {
+          console.log(
+            `[useSerial] ✅ ERROR response parsed successfully:`,
+            response
+          );
+        }
       } catch (e) {
+        if (line.includes('WIFI')) {
+          console.log(
+            `[useSerial] ❌ Failed to parse ERROR JSON: "${jsonStr}", error:`,
+            e
+          );
+        }
         return;
       }
     } else if (line.startsWith(RESPONSE_PREFIXES.PROGRESS)) {
       const jsonStr = line.substring(RESPONSE_PREFIXES.PROGRESS.length);
+      if (line.includes('WIFI')) {
+        console.log(
+          `[useSerial] 🟡 Parsing PROGRESS response, JSON: "${jsonStr}"`
+        );
+      }
       try {
         response = JSON.parse(jsonStr) as SerialResponse;
         isProgress = true;
+        if (line.includes('WIFI')) {
+          console.log(
+            `[useSerial] ✅ PROGRESS response parsed successfully:`,
+            response
+          );
+        }
       } catch (e) {
+        if (line.includes('WIFI')) {
+          console.log(
+            `[useSerial] ❌ Failed to parse PROGRESS JSON: "${jsonStr}", error:`,
+            e
+          );
+        }
         return;
       }
     } else {
       // Device might send initialization message or other non-prefixed data
       // Try parsing as direct JSON (for initialization messages)
+      if (line.includes('WIFI')) {
+        console.log(`[useSerial] 🔵 Trying to parse as direct JSON: "${line}"`);
+      }
       try {
         response = JSON.parse(line) as SerialResponse;
+        if (line.includes('WIFI')) {
+          console.log(
+            `[useSerial] ✅ Direct JSON parsed successfully:`,
+            response
+          );
+        }
       } catch (e) {
+        if (line.includes('WIFI')) {
+          console.log(
+            `[useSerial] ❌ Failed to parse direct JSON: "${line}", error:`,
+            e
+          );
+        }
         return;
       }
     }
@@ -252,6 +381,16 @@ export const useSerial = ({
 
           for (const line of lines) {
             if (line.trim()) {
+              // Log raw data for WiFi-related responses
+              if (
+                line.includes('WIFI') ||
+                line.includes('OK:') ||
+                line.includes('ERROR:')
+              ) {
+                console.log(
+                  `[useSerial] 📥 Raw data received: "${line.trim()}"`
+                );
+              }
               handleResponse(line.trim());
             }
           }
