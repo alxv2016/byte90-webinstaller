@@ -1,20 +1,24 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import StatusNotification from './statusnotification';
+import NetworkList from './network-list';
 import type {
   UseSerialReturn,
   WiFiStatus,
   Network,
+  DeviceInfo,
 } from '../data/webserial.interface';
 
 interface WiFiConnectionCardProps {
   serial: UseSerialReturn;
   isSerialConnected: boolean;
+  deviceInfo: DeviceInfo | null;
 }
 
-const WiFiConnectionCard: React.FC<WiFiConnectionCardProps> = ({
+export default function WiFiConnectionCard({
   serial,
   isSerialConnected,
-}) => {
+  deviceInfo,
+}: WiFiConnectionCardProps) {
   const [networks, setNetworks] = useState<Network[]>([]);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [scanStatus, setScanStatus] = useState<{
@@ -73,20 +77,6 @@ const WiFiConnectionCard: React.FC<WiFiConnectionCardProps> = ({
       setIsScanning(false);
     }
   }, [serial, isScanning]);
-
-  const getSecurityIcon = (network: Network) => {
-    if (network.secure) {
-      return '🔒'; // Secured network
-    }
-    return '📶'; // Open network
-  };
-
-  const getSignalStrength = (rssi: number) => {
-    if (rssi >= -50) return 'Excellent';
-    if (rssi >= -60) return 'Good';
-    if (rssi >= -70) return 'Fair';
-    return 'Weak';
-  };
 
   const handleNetworkSelect = (ssid: string) => {
     setSelectedNetwork(ssid);
@@ -422,12 +412,14 @@ const WiFiConnectionCard: React.FC<WiFiConnectionCardProps> = ({
                 className='btn btn-primary'
                 onClick={scanNetworks}
                 disabled={
+                  !deviceInfo ||
                   isScanning ||
                   isConnecting ||
                   isDisconnecting ||
                   isCheckingStatus
                 }
                 type='button'
+                title={!deviceInfo ? 'Waiting for device information...' : ''}
               >
                 {isScanning ? 'Scanning...' : 'Scan for Networks'}
               </button>
@@ -468,109 +460,75 @@ const WiFiConnectionCard: React.FC<WiFiConnectionCardProps> = ({
             </div>
           </div>
 
-          {networks.length > 0 && (
-            <div style={{ marginTop: '1rem' }}>
-              <h4
-                style={{
-                  marginBottom: '0.5rem',
-                  fontSize: '1rem',
-                  color: '#333',
-                }}
-              >
-                Found {networks.length} networks:
-              </h4>
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.5rem',
-                }}
-              >
-                {networks.map((network, index) => (
-                  <div
-                    key={`${network.ssid}-${index}`}
-                    onClick={() =>
-                      !isCurrentlyConnected && handleNetworkSelect(network.ssid)
-                    }
-                    style={{
-                      padding: '0.75rem',
-                      border:
-                        selectedNetwork === network.ssid
-                          ? '2px solid #2196f3'
-                          : '1px solid #e0e0e0',
-                      borderRadius: '6px',
-                      backgroundColor:
-                        selectedNetwork === network.ssid
-                          ? '#f3f9ff'
-                          : '#fafafa',
-                      cursor: isCurrentlyConnected ? 'not-allowed' : 'pointer',
-                      opacity: isCurrentlyConnected ? 0.5 : 1,
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '0.25rem',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem',
-                        }}
-                      >
-                        <span style={{ fontWeight: 600, color: '#333' }}>
-                          {network.ssid}
-                        </span>
-                        <span
-                          style={{ fontSize: '1.1em' }}
-                          title={network.secure ? 'Secured' : 'Open'}
-                        >
-                          {getSecurityIcon(network)}
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.75rem',
-                          fontSize: '0.85rem',
-                          color: '#666',
-                          flexWrap: 'wrap',
-                        }}
-                      >
-                        <span style={{ fontWeight: 500 }}>
-                          Signal:{' '}
-                          {network.signal_strength ||
-                            getSignalStrength(network.rssi)}
-                        </span>
-                        <span style={{ fontFamily: 'monospace' }}>
-                          ({network.rssi} dBm)
-                        </span>
-                        {network.security && (
-                          <span
-                            style={{
-                              padding: '0.15rem 0.4rem',
-                              backgroundColor: '#e3f2fd',
-                              borderRadius: '3px',
-                              fontSize: '0.75rem',
-                              fontWeight: 500,
-                              color: '#1976d2',
-                            }}
-                          >
-                            {network.security}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+          {/* Always show network list area */}
+          <div style={{ marginTop: '1rem' }}>
+            {networks.length > 0 ? (
+              <NetworkList
+                networks={networks}
+                selectedNetwork={selectedNetwork}
+                isCurrentlyConnected={isCurrentlyConnected}
+                onNetworkSelect={handleNetworkSelect}
+              />
+            ) : (
+              <div className='no-networks'>
+                <h4
+                  style={{
+                    marginBottom: '0.5rem',
+                    fontSize: '1rem',
+                    color: '#333',
+                  }}
+                >
+                  Available Networks
+                </h4>
+                <div
+                  style={{
+                    padding: '2rem 1rem',
+                    textAlign: 'center',
+                    color: '#666',
+                    backgroundColor: '#f9f9f9',
+                    borderRadius: '6px',
+                    border: '1px solid #e0e0e0',
+                  }}
+                >
+                  {!deviceInfo ? (
+                    <p>
+                      📡 Waiting for device connection...
+                      <br />
+                      <span style={{ fontSize: '0.9rem', color: '#888' }}>
+                        Connect to your device to scan for WiFi networks
+                      </span>
+                    </p>
+                  ) : !isScanning && networks.length === 0 ? (
+                    <p>
+                      📶 No networks scanned yet
+                      <br />
+                      <span style={{ fontSize: '0.9rem', color: '#888' }}>
+                        Click "Scan for Networks" to discover available WiFi
+                        networks
+                      </span>
+                    </p>
+                  ) : isScanning ? (
+                    <p>
+                      🔄 Scanning for networks...
+                      <br />
+                      <span style={{ fontSize: '0.9rem', color: '#888' }}>
+                        Please wait while we discover available WiFi networks
+                      </span>
+                    </p>
+                  ) : (
+                    <p>
+                      📭 No networks found
+                      <br />
+                      <span style={{ fontSize: '0.9rem', color: '#888' }}>
+                        Try scanning again or check your device's WiFi
+                        capability
+                      </span>
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {selectedNetwork && !isCurrentlyConnected && (
             <div
@@ -707,17 +665,6 @@ const WiFiConnectionCard: React.FC<WiFiConnectionCardProps> = ({
               </div>
             </div>
           )}
-
-          {networks.length === 0 && !isScanning && (
-            <div className='no-networks'>
-              <p
-                style={{ textAlign: 'center', color: '#666', margin: '1rem 0' }}
-              >
-                No networks found. Click "Scan for Networks" to search for
-                available WiFi networks.
-              </p>
-            </div>
-          )}
         </div>
 
         <StatusNotification
@@ -727,6 +674,4 @@ const WiFiConnectionCard: React.FC<WiFiConnectionCardProps> = ({
       </div>
     </div>
   );
-};
-
-export default WiFiConnectionCard;
+}

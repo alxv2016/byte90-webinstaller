@@ -1,17 +1,76 @@
-import React from 'react';
+import { useMemo } from 'react';
 import ByteLogo from './bytelogo';
 import StatusNotification from './statusnotification';
+import WiFiConnectionCard from './wifi-connection-card';
+import UpdateCard from './update-card';
+import TabNavigation from './tab-navigation';
 
 // Import types from centralized location
-import type { ConnectionCardProps } from '../data/webserial.interface';
+import type {
+  ConnectionCardProps,
+  UseSerialReturn,
+  StatusMessage,
+  ProgressUpdate,
+  UpdateType,
+} from '../data/webserial.interface';
 
-const ConnectionCard: React.FC<ConnectionCardProps> = ({
+interface ExtendedConnectionCardProps extends ConnectionCardProps {
+  serial: UseSerialReturn;
+  updateInProgress: boolean;
+  updateStatus: StatusMessage;
+  progress: ProgressUpdate;
+  showProgress: boolean;
+  onStartUpdate: (file: File, updateType: UpdateType) => Promise<void>;
+  onAbortUpdate: () => Promise<void>;
+}
+
+export default function ConnectionCard({
   isConnected,
   deviceInfo,
   connectionStatus,
   onConnect,
   onDisconnect,
-}) => {
+  serial,
+  updateInProgress,
+  updateStatus,
+  progress,
+  showProgress,
+  onStartUpdate,
+  onAbortUpdate,
+}: ExtendedConnectionCardProps) {
+  // Memoize tab content to prevent component unmounting/remounting
+  const wifiTabContent = useMemo(
+    () => (
+      <WiFiConnectionCard
+        serial={serial}
+        isSerialConnected={isConnected}
+        deviceInfo={deviceInfo}
+      />
+    ),
+    [serial, isConnected, deviceInfo]
+  );
+
+  const updateTabContent = useMemo(
+    () => (
+      <UpdateCard
+        updateInProgress={updateInProgress}
+        updateStatus={updateStatus}
+        progress={progress}
+        showProgress={showProgress}
+        onStartUpdate={onStartUpdate}
+        onAbortUpdate={onAbortUpdate}
+      />
+    ),
+    [
+      updateInProgress,
+      updateStatus,
+      progress,
+      showProgress,
+      onStartUpdate,
+      onAbortUpdate,
+    ]
+  );
+
   const handleConnect = async (): Promise<void> => {
     try {
       await onConnect();
@@ -33,10 +92,10 @@ const ConnectionCard: React.FC<ConnectionCardProps> = ({
       <div className='card'>
         <div className='card__header'>
           <ByteLogo />
-          <h1 className='card__title'>BYTE-90 Firmware Update</h1>
+          <h1 className='card__title'>BYTE-90 Device Manager</h1>
           <p className='card__description'>
-            To update your BYTE-90 firmware, put the device in Update Mode,
-            connect via the provided USB-C cable, and connect to continue.
+            Connect to your BYTE-90 device to manage WiFi settings and firmware
+            updates. Put the device in Update Mode and connect via USB-C cable.
           </p>
         </div>
 
@@ -111,6 +170,25 @@ const ConnectionCard: React.FC<ConnectionCardProps> = ({
               </div>
             </div>
           )}
+
+          {/* Tab Navigation - only show when connected */}
+          {isConnected && (
+            <TabNavigation
+              tabs={[
+                {
+                  id: 'wifi',
+                  label: 'WiFi Settings',
+                  content: wifiTabContent,
+                },
+                {
+                  id: 'update',
+                  label: 'Firmware Update',
+                  content: updateTabContent,
+                },
+              ]}
+              defaultActiveTab='wifi'
+            />
+          )}
         </div>
 
         <StatusNotification
@@ -120,6 +198,4 @@ const ConnectionCard: React.FC<ConnectionCardProps> = ({
       </div>
     </div>
   );
-};
-
-export default ConnectionCard;
+}

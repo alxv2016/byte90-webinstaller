@@ -1,8 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import ConnectionCard from './components/connection-card';
-import UpdateCard from './components/update-card';
 import CompatibilityCard from './components/compatibility-card';
-import WiFiConnectionCard from './components/wifi-connection-card';
 import { useSerial } from './hooks/useSerial';
 import { useUpdater } from './hooks/useUpdater';
 
@@ -14,7 +12,7 @@ import type {
 } from './data/webserial.interface';
 
 // App component
-const App: React.FC = () => {
+export default function App() {
   // State management with proper TypeScript typing
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
@@ -32,8 +30,6 @@ const App: React.FC = () => {
     message: 'Ready to upload',
   });
   const [showProgress, setShowProgress] = useState<boolean>(false);
-  const [isWiFiConnected, setIsWiFiConnected] = useState<boolean>(false);
-
   // Initialize serial hook with proper callback typing
   const serial = useSerial({
     onConnectionChange: setIsConnected,
@@ -66,11 +62,6 @@ const App: React.FC = () => {
       console.error('Disconnect failed:', error);
     }
   }, [serial.disconnect]);
-
-  // Handle WiFi status changes
-  const handleWiFiStatusChange = useCallback((connected: boolean): void => {
-    setIsWiFiConnected(connected);
-  }, []);
 
   // Check browser compatibility
   const checkBrowserCompatibility = useCallback((): void => {
@@ -161,38 +152,22 @@ const App: React.FC = () => {
   }, [updateInProgress]);
 
   return (
-    <main role='main' aria-label='BYTE-90 Firmware Updater'>
-      {/* Connection management section */}
+    <main role='main' aria-label='BYTE-90 Device Manager'>
+      {/* Connection management section with integrated tabs */}
       <ConnectionCard
         isConnected={isConnected}
         deviceInfo={deviceInfo}
         connectionStatus={connectionStatus}
         onConnect={handleConnect}
         onDisconnect={handleDisconnect}
+        serial={serial}
+        updateInProgress={updateInProgress}
+        updateStatus={updateStatus}
+        progress={progress}
+        showProgress={showProgress}
+        onStartUpdate={updater.startUpdate}
+        onAbortUpdate={updater.abortUpdate}
       />
-
-      {/* WiFi Connection section - shown when connected to device */}
-      {isConnected && (
-        <WiFiConnectionCard
-          serial={serial}
-          isSerialConnected={isConnected}
-          isWiFiConnected={isWiFiConnected}
-          deviceInfo={deviceInfo}
-          onWiFiStatusChange={handleWiFiStatusChange}
-        />
-      )}
-
-      {/* Update section - only shown when connected to device */}
-      {isConnected && (
-        <UpdateCard
-          updateInProgress={updateInProgress}
-          updateStatus={updateStatus}
-          progress={progress}
-          showProgress={showProgress}
-          onStartUpdate={updater.startUpdate}
-          onAbortUpdate={updater.abortUpdate}
-        />
-      )}
 
       {/* Browser compatibility information */}
       <CompatibilityCard />
@@ -209,6 +184,4 @@ const App: React.FC = () => {
       </div>
     </main>
   );
-};
-
-export default App;
+}
