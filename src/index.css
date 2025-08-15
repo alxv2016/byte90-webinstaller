@@ -1,5 +1,7 @@
 /* CSS RESET*/
- *:where(:not(html, iframe, canvas, img, svg, video, audio):not(svg *, symbol *)) {
+*:where(
+  :not(html, iframe, canvas, img, svg, video, audio):not(svg *, symbol *)
+) {
   all: unset;
   display: revert;
 }
@@ -24,7 +26,10 @@ button {
   cursor: pointer;
 }
 
-a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
   outline: 3px auto -webkit-focus-ring-color;
   outline-offset: 3px;
 }
@@ -129,12 +134,12 @@ meter {
   --legal: 0.624rem;
   --fineprint: 0.555rem;
 
-  --spacing-2xs: 0.125rem; 
-  --spacing-xs: 0.25rem; 
-  --spacing-sm: 0.5rem; 
-  --spacing-md: 0.75rem; 
-  --spacing-lg: 1rem; 
-  --spacing-xl: 1.5rem; 
+  --spacing-2xs: 0.125rem;
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 0.75rem;
+  --spacing-lg: 1rem;
+  --spacing-xl: 1.5rem;
   --spacing-2xl: 2rem;
   --spacing-3xl: 2.5rem;
   --spacing-4xl: 3rem;
@@ -170,7 +175,7 @@ meter {
   --c-danger-bg: #f8d7da;
   --c-background: #f8f9fa;
   --c-text: #212529;
-  --c-logo: #FAA52C;
+  --c-logo: #faa52c;
 }
 
 /* Set core body defaults */
@@ -179,7 +184,9 @@ body {
   text-rendering: optimizeSpeed;
   font-weight: 400;
   user-select: none;
-  font-family: 'Helvetica Neue', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  font-family:
+    'Helvetica Neue', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol';
   background-color: var(--c-background);
   color: var(--c-text);
 }
@@ -216,7 +223,7 @@ main {
 }
 
 .byte-logo {
-  position: relative ;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -281,9 +288,9 @@ main {
   font-weight: 500;
 }
 
-.form-control select, 
-.form-control input, 
-.form-control input[type="file"] {
+.form-control select,
+.form-control input,
+.form-control input[type='file'] {
   position: relative;
   display: flex;
   align-items: center;
@@ -295,19 +302,19 @@ main {
   font-size: var(--body-02);
 }
 
-.form-control select::placeholder, 
+.form-control select::placeholder,
 .form-control input::placeholder {
   color: var(--c-gray-500);
 }
 
-.form-control label ~ select, 
-.form-control label ~ input, 
-.form-control label ~ .form-select, 
+.form-control label ~ select,
+.form-control label ~ input,
+.form-control label ~ .form-select,
 .form-control label ~ .form-password {
   margin-top: var(--spacing-xs);
 }
 
-.form-control input[type="file"] {
+.form-control input[type='file'] {
   padding: var(--spacing-sm);
 }
 
@@ -322,7 +329,7 @@ main {
   margin-right: var(--spacing-lg);
 }
 
-.form-control input.error, 
+.form-control input.error,
 .form-control select.error {
   outline: 3px auto var(--c-danger);
   outline-offset: 3px;
@@ -385,7 +392,7 @@ main {
   font-size: var(--body-01);
 }
 
-.btn.btn-disabled, 
+.btn.btn-disabled,
 .btn:disabled {
   background-color: var(--c-gray-400);
   color: var(--c-gray-500);
@@ -397,7 +404,7 @@ main {
   color: var(--c-white);
 }
 
-.btn.btn-primary:active, 
+.btn.btn-primary:active,
 .btn.btn-primary:hover {
   background-color: var(--c-primary-hover);
 }
@@ -407,7 +414,7 @@ main {
   color: var(--c-gray-800);
 }
 
-.btn.btn-muted:active, 
+.btn.btn-muted:active,
 .btn.btn-muted:hover {
   background-color: var(--c-gray-600);
   color: var(--c-gray-300);
@@ -423,12 +430,12 @@ main {
   margin-right: var(--spacing-md);
 }
 
-.btn-group .btn:last-child, 
+.btn-group .btn:last-child,
 .btn-group .btn:last-of-type {
   margin-right: 0;
 }
 
-.form-password, 
+.form-password,
 .form-select {
   position: relative;
   display: flex;
@@ -567,8 +574,8 @@ main {
   color: var(--c-success-text);
 }
 
-.btn:disabled, 
-.btn:disabled:hover, 
+.btn:disabled,
+.btn:disabled:hover,
 .btn:disabled:active {
   background-color: var(--c-gray-400);
   color: var(--c-gray-500);
@@ -601,12 +608,124 @@ main {
   .info-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .btn-group {
     flex-direction: column;
   }
-  
+
   .connection-controls {
     flex-direction: column;
   }
+}
+
+/* Additional styles for WiFi Connection Card */
+
+.form-password {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.form-password input {
+  padding-right: 3rem; /* Make room for the toggle button */
+}
+
+.password-toggle {
+  position: absolute;
+  right: var(--spacing-sm);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--spacing-xs);
+  border-radius: var(--border-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c-gray-600);
+}
+
+.password-toggle:hover {
+  background-color: var(--c-gray-100);
+  color: var(--c-gray-800);
+}
+
+.password-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Network selection styling */
+.form-select {
+  position: relative;
+}
+
+.form-select select {
+  appearance: none;
+  background-image: none;
+  padding-right: 2.5rem;
+}
+
+.form-select svg {
+  position: absolute;
+  right: var(--spacing-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--c-gray-500);
+}
+
+/* Connection status indicators */
+.wifi-status-connected {
+  color: var(--c-success);
+  font-weight: 600;
+}
+
+.wifi-status-disconnected {
+  color: var(--c-gray-600);
+}
+
+/* Small button variant for refresh networks */
+.btn-small {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--caption);
+  min-height: auto;
+}
+
+/* Network signal strength indicators */
+.signal-excellent {
+  color: var(--c-success);
+}
+
+.signal-good {
+  color: var(--c-warning);
+}
+
+.signal-poor {
+  color: var(--c-danger);
+}
+
+/* Loading states */
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-control input:disabled,
+.form-control select:disabled {
+  background-color: var(--c-gray-100);
+  color: var(--c-gray-500);
+  cursor: not-allowed;
+}
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

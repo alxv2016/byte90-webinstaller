@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import ConnectionCard from './components/connection-card';
 import UpdateCard from './components/update-card';
 import CompatibilityCard from './components/compatibility-card';
+import WiFiConnectionCard from './components/wifi-connection-card';
 import { useSerial } from './hooks/useSerial';
 import { useUpdater } from './hooks/useUpdater';
 
@@ -31,6 +32,7 @@ const App: React.FC = () => {
     message: 'Ready to upload',
   });
   const [showProgress, setShowProgress] = useState<boolean>(false);
+  const [isWiFiConnected, setIsWiFiConnected] = useState<boolean>(false);
 
   // Initialize serial hook with proper callback typing
   const serial = useSerial({
@@ -64,6 +66,11 @@ const App: React.FC = () => {
       console.error('Disconnect failed:', error);
     }
   }, [serial.disconnect]);
+
+  // Handle WiFi status changes
+  const handleWiFiStatusChange = useCallback((connected: boolean): void => {
+    setIsWiFiConnected(connected);
+  }, []);
 
   // Check browser compatibility
   const checkBrowserCompatibility = useCallback((): void => {
@@ -164,7 +171,18 @@ const App: React.FC = () => {
         onDisconnect={handleDisconnect}
       />
 
-      {/* Update section - only shown when connected */}
+      {/* WiFi Connection section - shown when connected to device */}
+      {isConnected && (
+        <WiFiConnectionCard
+          serial={serial}
+          isSerialConnected={isConnected}
+          isWiFiConnected={isWiFiConnected}
+          deviceInfo={deviceInfo}
+          onWiFiStatusChange={handleWiFiStatusChange}
+        />
+      )}
+
+      {/* Update section - only shown when connected to device */}
       {isConnected && (
         <UpdateCard
           updateInProgress={updateInProgress}

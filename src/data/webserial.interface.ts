@@ -67,6 +67,34 @@ export interface SerialCommands {
   GET_PARTITION_INFO: string;
   GET_STORAGE_INFO: string;
   VALIDATE_FIRMWARE: string;
+  WIFI_SCAN: string;
+  WIFI_STATUS: string;
+  WIFI_CONNECT: string;
+  WIFI_DISCONNECT: string;
+  WIFI_GET_SAVED: string;
+  WIFI_FORGET: string;
+}
+
+// WiFi Network interface - Updated to match actual device response
+export interface Network {
+  ssid: string;
+  rssi: number;
+  signal_strength: string;
+  secure?: boolean; // Added - indicates if network requires password
+  security?: string; // Added - security type (e.g., "WPA2")
+}
+
+// WiFi Status interface - Updated to match actual device response format
+export interface WiFiStatus {
+  success: boolean;
+  status: string; // Changed from wifi_state to status (CONFIG_MODE, CONNECTED, etc.)
+  ssid?: string; // Made optional since it's empty when not connected
+  rssi?: number; // Made optional since it's 0 when not connected
+  signal_strength?: string; // Made optional
+  message: string;
+  connected: boolean;
+  networks?: Network[]; // Made optional since not always present
+  ip_address?: string; // Added - IP address when connected
 }
 
 // Hook interfaces
@@ -142,4 +170,13 @@ export interface StatusNotificationProps {
 export interface CompatibilityCardProps {
   className?: string;
   showDetails?: boolean;
+}
+
+// Updated WiFi Connection Card Props to match our new structure
+export interface WiFiConnectionCardProps {
+  serial: UseSerialReturn;
+  isSerialConnected: boolean; // Changed from isConnected to isSerialConnected
+  isWiFiConnected: boolean; // Added - separate WiFi connection state
+  deviceInfo: DeviceInfo | null; // Added - device info for initialization timing
+  onWiFiStatusChange: (connected: boolean) => void;
 }
