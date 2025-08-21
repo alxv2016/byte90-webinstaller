@@ -52,7 +52,7 @@ const CompatibilityCard: React.FC<CompatibilityCardProps> = ({
   };
 
   const getStatusIcon = (): string => {
-    return isSerialSupported ? '✅' : '❌';
+    return isSerialSupported ? 'Supported' : 'Not Supported';
   };
 
   const getRecommendation = (): string => {
@@ -71,35 +71,23 @@ const CompatibilityCard: React.FC<CompatibilityCardProps> = ({
     return 'Your browser does not support the Web Serial API. Please use Chrome or Edge.';
   };
 
-  const cardClassName = ['card-wrapper', className].filter(Boolean).join(' ');
-
   return (
-    <div className={cardClassName}>
-      <div className='card'>
-        <div className='compatibility-status' role='status' aria-live='polite'>
-          <span className='status-label'>Browser compatibility:</span>
-          <span
-            className={`status-label ${isSerialSupported ? 'supported' : 'not-supported'}`}
-            aria-label={`Web Serial API is ${isSerialSupported ? 'supported' : 'not supported'} in your browser`}
-          >
-            {getStatusIcon()}{' '}
-            {isSerialSupported ? 'Supported' : 'Not Supported'}
-          </span>
-        </div>
-
-        {showDetails && (
-          <>
-            <p
-              className='card__description'
-              role='region'
-              aria-label='Browser compatibility information'
-            >
-              {getRecommendation()}
-            </p>
-          </>
-        )}
+    <>
+      <div role='status' aria-live='polite'>
+        <span>Browser compatibility:</span>
+        <span
+          aria-label={`Web Serial API is ${isSerialSupported ? 'supported' : 'not supported'} in your browser`}
+        >
+          {getStatusIcon()} {isSerialSupported ? 'Supported' : 'Not Supported'}
+        </span>
       </div>
-    </div>
+
+      {showDetails && (
+        <p role='region' aria-label='Browser compatibility information'>
+          {getRecommendation()}
+        </p>
+      )}
+    </>
   );
 };
 

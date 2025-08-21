@@ -48,22 +48,8 @@ const StatusNotification: React.FC<StatusNotificationProps> = ({
     return role;
   };
 
-  const combinedClassName = [
-    'status-notification',
-    'show',
-    getStatusClass(),
-    className,
-  ]
-    .filter(Boolean)
-    .join(' ');
-
   return (
-    <div
-      className={combinedClassName}
-      role={getRole()}
-      aria-live={getAriaLive()}
-      aria-atomic='true'
-    >
+    <div role={getRole()} aria-live={getAriaLive()} aria-atomic='true'>
       {message}
     </div>
   );
