@@ -72,13 +72,14 @@ export const useUpdater = ({
         } else {
           updateStatus(response.message || 'Update failed', 'error');
         }
+        resetProgress();
       }
     };
 
     return () => {
       window.progressHandler = undefined;
     };
-  }, [onUpdateInProgress, updateStatus]);
+  }, [onUpdateInProgress, updateStatus, resetProgress]);
 
   const startUpdate = useCallback(
     async (file: File, updateType: UpdateType): Promise<void> => {
@@ -249,6 +250,7 @@ export const useUpdater = ({
         );
 
         onUpdateInProgress(false);
+        resetProgress();
 
         setTimeout(async () => {
           try {
@@ -270,6 +272,7 @@ export const useUpdater = ({
           error instanceof Error ? error.message : 'Unknown error';
         updateStatus(`Update failed: ${errorMessage}`, 'error');
         onUpdateInProgress(false);
+        resetProgress();
 
         try {
           await serial.sendCommand(serial.SERIAL_COMMANDS.ABORT_UPDATE);
@@ -278,7 +281,7 @@ export const useUpdater = ({
         }
       }
     },
-    [serial, onUpdateInProgress, updateStatus, updateProgress]
+    [serial, onUpdateInProgress, updateStatus, updateProgress, resetProgress]
   );
 
   const abortUpdate = useCallback(async (): Promise<void> => {

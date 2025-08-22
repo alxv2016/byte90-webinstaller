@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import StatusNotification from './statusnotification';
+import ConnectionNotification from './connection-notification';
 import { useAppContext } from '../contexts/AppContext';
 import type { UpdateType } from '../data/webserial.interface';
 
-const UpdateCard: React.FC = () => {
+const FirmwareUpdateCard: React.FC = () => {
   const {
     updateInProgress,
     updateStatus,
@@ -169,7 +169,7 @@ const UpdateCard: React.FC = () => {
         </button>
       )}
 
-      <StatusNotification
+      <ConnectionNotification
         message={updateStatus.message}
         type={updateStatus.type}
       />
@@ -177,4 +177,4 @@ const UpdateCard: React.FC = () => {
   );
 };
 
-export default UpdateCard;
+export default FirmwareUpdateCard;

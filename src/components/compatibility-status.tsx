@@ -6,8 +6,7 @@ import type {
   BrowserInfo,
 } from '../data/webserial.interface';
 
-const CompatibilityCard: React.FC<CompatibilityCardProps> = ({
-  className = '',
+const CompatibilityStatus: React.FC<CompatibilityCardProps> = ({
   showDetails = true,
 }) => {
   // Check for Web Serial API support
@@ -43,18 +42,6 @@ const CompatibilityCard: React.FC<CompatibilityCardProps> = ({
 
   const browserInfo = getBrowserInfo();
 
-  const getSupportedBrowsers = (): string[] => {
-    return ['Chrome 89+', 'Edge 89+', 'Opera 75+'];
-  };
-
-  const getUnsupportedBrowsers = (): string[] => {
-    return ['Firefox', 'Safari', 'Mobile browsers'];
-  };
-
-  const getStatusIcon = (): string => {
-    return isSerialSupported ? 'Supported' : 'Not Supported';
-  };
-
   const getRecommendation = (): string => {
     if (isSerialSupported) {
       return 'Your browser supports the Web Serial API. You can use this firmware updater.';
@@ -78,7 +65,7 @@ const CompatibilityCard: React.FC<CompatibilityCardProps> = ({
         <span
           aria-label={`Web Serial API is ${isSerialSupported ? 'supported' : 'not supported'} in your browser`}
         >
-          {getStatusIcon()} {isSerialSupported ? 'Supported' : 'Not Supported'}
+          {isSerialSupported ? 'Supported' : 'Not Supported'}
         </span>
       </div>
 
@@ -91,4 +78,4 @@ const CompatibilityCard: React.FC<CompatibilityCardProps> = ({
   );
 };
 
-export default CompatibilityCard;
+export default CompatibilityStatus;

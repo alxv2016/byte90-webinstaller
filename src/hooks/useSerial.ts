@@ -466,7 +466,7 @@ export const useSerial = ({
       }, 0);
 
       try {
-        updateConnectionStatus('Checking device mode...', 'info');
+        updateConnectionStatus('Checking device...', 'info');
 
         // Wait for the device to send its initialization message
         await new Promise<void>(resolve => setTimeout(resolve, 2000));
@@ -482,16 +482,12 @@ export const useSerial = ({
           // Check if device is in Update Mode
           if (info.current_mode !== 'Update Mode') {
             await disconnect();
-            updateConnectionStatus(
-              `Device is in ${info.current_mode}. Please switch to Update Mode and connect again.`,
-              'warning'
-            );
             return false;
           }
 
           onDeviceInfo(info);
           updateConnectionStatus(
-            'Device connected successfully in Update Mode',
+            'Connected in system configuration',
             'success'
           );
         } else {

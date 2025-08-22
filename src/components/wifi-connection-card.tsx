@@ -1,4 +1,4 @@
-import StatusNotification from './statusnotification';
+import ConnectionNotification from './connection-notification';
 import NetworkList from './network-list';
 import { useAppContext } from '../contexts/AppContext';
 
@@ -176,7 +176,7 @@ export default function WiFiConnectionCard() {
         </>
       )}
 
-      <StatusNotification
+      <ConnectionNotification
         message={scanStatus.message}
         type={scanStatus.type as any}
       />

@@ -1,0 +1,35 @@
+.connection-status {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  max-width: var(--max-width);
+  background-color: var(--c-white);
+  border-top: 1px solid var(--c-gray-300);
+  padding: var(--spacing-sm);
+  z-index: 10;
+  margin: var(--spacing-lg);
+  margin-bottom: var(--spacing-2xl);
+  border-radius: var(--border-radius);
+
+  .btn {
+    max-width: 120px;
+  }
+}
+
+.connection-status__content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-left: var(--spacing-md);
+}
+
+.connection-status-message {
+  font-size: var(--body-02);
+  line-height: var(--ui-line-height);
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.connection-status-message ~ .btn {
+  margin-left: var(--spacing-xl);
+}
