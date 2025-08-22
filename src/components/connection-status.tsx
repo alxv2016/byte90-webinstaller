@@ -18,22 +18,24 @@ export default function ConnectionStatus() {
   };
 
   return (
-    <div className='connection-status'>
-      <div className='connection-status__content'>
-        <div className='connection-status-message'>
-          <ConnectionNotification
-            message={connectionStatus.message}
-            type={connectionStatus.type}
-          />
+    <div className='connection-status-container'>
+      <div className='connection-status'>
+        <div className='connection-status__content'>
+          <div className='connection-status-message'>
+            <ConnectionNotification
+              message={connectionStatus.message}
+              type={connectionStatus.type}
+            />
+          </div>
+          <button
+            className='btn btn-muted'
+            onClick={handleDisconnect}
+            type='button'
+            aria-label='Disconnect from BYTE-90 device'
+          >
+            Disconnect
+          </button>
         </div>
-        <button
-          className='btn btn-muted'
-          onClick={handleDisconnect}
-          type='button'
-          aria-label='Disconnect from BYTE-90 device'
-        >
-          Disconnect
-        </button>
       </div>
     </div>
   );
