@@ -1,0 +1,65 @@
+/* Network List Component Styles */
+.networks {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.networks__list {
+  position: relative;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--c-gray-400);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--border-radius);
+}
+
+.networks__list:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+.networks__item {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: var(--spacing-md) var(--spacing-xs);
+  border: 1px solid transparent;
+  min-height: 32px;
+  font-size: var(--body-02);
+  justify-content: space-between;
+}
+
+.networks__item-ssid {
+  font-weight: 600;
+}
+
+.networks__item-details {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.networks__item ~ .networks__item {
+  border-top: 1px solid var(--c-gray-200);
+}
+
+.networks__item[aria-selected='true'] {
+  background-color: var(--c-gray-300);
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+
+.wifi-security-icon,
+.wifi-signal-icon,
+.wifi-connected-icon {
+  width: 16px;
+  height: 16px;
+  fill: var(--c-gray-600);
+}

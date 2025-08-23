@@ -63,12 +63,15 @@ export default function WiFiConnectionCard() {
   return (
     <div className='card'>
       <div className='card__content'>
-        <h2>WiFi Scanner & Connector</h2>
-        <h3>Available Networks</h3>
-        <p>
-          Scan for WiFi networks and select one to connect. Connection attempts
-          will be logged to the console for now.
-        </p>
+        <h2>WiFi</h2>
+        <p>Connect to your WiFi network or view available networks.</p>
+        <NetworkList
+          networks={networks}
+          selectedNetwork={selectedNetwork}
+          isCurrentlyConnected={isCurrentlyConnected}
+          onNetworkSelect={handleNetworkSelect}
+          connectedNetworkSSID={connectedNetwork}
+        />
 
         {isCurrentlyConnected && (
           <>
@@ -109,50 +112,6 @@ export default function WiFiConnectionCard() {
         >
           {isCheckingStatus ? 'Checking...' : 'Check WiFi Status'}
         </button>
-
-        {networks.length > 0 ? (
-          <NetworkList
-            networks={networks}
-            selectedNetwork={selectedNetwork}
-            isCurrentlyConnected={isCurrentlyConnected}
-            onNetworkSelect={handleNetworkSelect}
-          />
-        ) : (
-          <>
-            <h4>Available Networks</h4>
-            {!deviceInfo ? (
-              <p>
-                Waiting for device connection...
-                <br />
-                <span>Connect to your device to scan for WiFi networks</span>
-              </p>
-            ) : !isScanning && networks.length === 0 ? (
-              <p>
-                No networks scanned yet
-                <br />
-                <span>
-                  Click "Scan for Networks" to discover available WiFi networks
-                </span>
-              </p>
-            ) : isScanning ? (
-              <p>
-                Scanning for networks...
-                <br />
-                <span>
-                  Please wait while we discover available WiFi networks
-                </span>
-              </p>
-            ) : (
-              <p>
-                No networks found
-                <br />
-                <span>
-                  Try scanning again or check your device's WiFi capability
-                </span>
-              </p>
-            )}
-          </>
-        )}
 
         {selectedNetwork && !isCurrentlyConnected && (
           <>

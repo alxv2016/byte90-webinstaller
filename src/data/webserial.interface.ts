@@ -80,8 +80,9 @@ export interface Network {
   ssid: string;
   rssi: number;
   signal_strength: string;
-  secure?: boolean; // Added - indicates if network requires password
-  security?: string; // Added - security type (e.g., "WPA2")
+  encryption_type: number; // Added - numeric encryption type value
+  is_open: boolean; // Added - true if network is open (no password)
+  security: string; // Updated - security type description (e.g., "WPA2", "Open")
 }
 
 // WiFi Status interface - Updated to match actual device response format
