@@ -1,0 +1,25 @@
+/* Status Announcer Component Styles */
+.status-announcer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  width: 100%;
+}
+
+.status-announcer__label {
+  font-size: var(--caption);
+  line-height: var(--ui-line-height);
+  padding-right: var(--spacing-sm);
+  font-weight: 600;
+  color: var(--c-gray-800);
+  border-right: 1px solid var(--c-gray-500);
+}
+
+.status-announcer__message {
+  font-size: var(--caption);
+  line-height: var(--ui-line-height);
+  font-weight: 400;
+  padding-left: var(--spacing-sm);
+  color: var(--c-gray-700);
+}

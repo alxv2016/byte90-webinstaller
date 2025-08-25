@@ -28,7 +28,7 @@ export default function WifiStatusCard() {
 
         <div className='wifi-status-card__actions'>
           <button
-            className='btn btn-secondary'
+            className='btn btn-icon btn-rounded btn-outline-inverse'
             onClick={checkWiFiStatus}
             disabled={isCheckingStatus || isDisconnecting}
             aria-label='Refresh WiFi status'
@@ -38,7 +38,7 @@ export default function WifiStatusCard() {
           </button>
 
           <button
-            className='btn btn-primary'
+            className='btn btn-rounded btn-outline-inverse'
             onClick={disconnectFromNetwork}
             disabled={isDisconnecting || isCheckingStatus}
             type='button'

@@ -2,6 +2,7 @@ import React from 'react';
 import HelpIcon from '../assets/help.svg?react';
 import FirmwareDownloadIcon from '../assets/firmware_download.svg?react';
 import PurchaseIcon from '../assets/purchase.svg?react';
+import CardComponent from './card-component';
 import './support-card.css';
 
 interface SupportLink {
@@ -44,16 +45,8 @@ export default function SupportCard() {
   };
 
   return (
-    <div className='support-card'>
-      <div className='support-card__container'>
-        <div className='support-card__header'>
-          <HelpIcon className='support-card__icon' />
-          <h2>Support links</h2>
-        </div>
-        <div className='support-card__content'>
-          <ul className='support-links'>{renderSupportLinks(supportLinks)}</ul>
-        </div>
-      </div>
-    </div>
+    <CardComponent icon={HelpIcon} title='Support links'>
+      <ul className='support-links'>{renderSupportLinks(supportLinks)}</ul>
+    </CardComponent>
   );
 }

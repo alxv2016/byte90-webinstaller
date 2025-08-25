@@ -1,38 +1,6 @@
 .device-info {
   position: relative;
   width: 100%;
-  max-width: var(--max-width);
-  margin-bottom: var(--spacing-lg);
-  font-weight: 600;
-  font-size: var(--body-02);
-  color: var(--c-gray-800);
-  background-color: var(--c-gray-300);
-  padding: var(--spacing-md) var(--spacing-lg);
-  border-radius: var(--border-radius);
-  border: 1px solid var(--c-gray-400);
-}
-
-.device-info__header {
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  margin-bottom: var(--spacing-sm);
-  h2 {
-    font-size: var(--heading-06);
-  }
-}
-
-.device-info-icon {
-  width: 24px;
-  height: 24px;
-  fill: var(--c-gray-700);
-  margin-right: var(--spacing-xs);
-}
-
-.device-info__content {
-  position: relative;
-  width: 100%;
   display: flex;
   align-items: center;
 }

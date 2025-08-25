@@ -9,6 +9,7 @@ interface CardComponentProps {
   className?: string;
   footerIcon?: React.ComponentType<{ className?: string }>;
   footerDescription?: string;
+  muted?: boolean;
 }
 
 export default function CardComponent({
@@ -19,13 +20,14 @@ export default function CardComponent({
   className = '',
   footerIcon: FooterIconComponent,
   footerDescription,
+  muted = false,
 }: CardComponentProps) {
   const hasFooter = FooterIconComponent || footerDescription;
 
   return (
     <div className={`card-component ${className}`}>
       <div
-        className={`card-component__container ${hasFooter ? 'card-component__container--with-footer' : ''}`}
+        className={`card-component__container ${hasFooter ? 'card-component__container--with-footer' : ''} ${muted ? 'card-component__container--muted' : ''}`}
       >
         {(IconComponent || title) && (
           <div className='card-component__header'>

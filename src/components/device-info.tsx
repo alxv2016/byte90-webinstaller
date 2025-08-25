@@ -1,5 +1,6 @@
 import { useAppContext } from '../contexts/AppContext';
 import DeviceInfoIcon from '../assets/device_info.svg?react';
+import CardComponent from './card-component';
 import './device-info.css';
 
 export default function DeviceInfo() {
@@ -10,13 +11,13 @@ export default function DeviceInfo() {
   }
 
   return (
-    <div className='device-info'>
-      <div className='device-info__header'>
-        <DeviceInfoIcon className='device-info-icon' />
-        <h2 className='device-info__title'>Device Information</h2>
-      </div>
+    <CardComponent
+      icon={DeviceInfoIcon}
+      title='Device Information'
+      muted={true}
+    >
       <div
-        className='device-info__content'
+        className='device-info'
         role='region'
         aria-label='Device Information'
       >
@@ -61,6 +62,6 @@ export default function DeviceInfo() {
           </div>
         </div>
       </div>
-    </div>
+    </CardComponent>
   );
 }

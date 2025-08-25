@@ -5,6 +5,8 @@ import { useEffect, useRef } from 'react';
 import WifiIcon from '../assets/wifi.svg?react';
 import ShowIcon from '../assets/show.svg?react';
 import HideIcon from '../assets/hide.svg?react';
+import CardComponent from './card-component';
+import FormControl from './form-control';
 import './wifi-connection-card.css';
 
 // No props needed - using context
@@ -88,85 +90,74 @@ export default function WiFiConnectionCard() {
   }
 
   return (
-    <div className='wifi-connection-card'>
-      <div className='wifi-connection-card__header'>
-        <WifiIcon className='wifi-icon' />
-        <h2>WiFi</h2>
-      </div>
-      <div className='wifi-connection-card__content'>
-        <ConnectionNotification
-          message={scanStatus.message}
-          type={scanStatus.type as any}
-        />
-        <NetworkList
-          networks={networks}
-          selectedNetwork={selectedNetwork}
-          isCurrentlyConnected={isCurrentlyConnected}
-          onNetworkSelect={handleNetworkSelect}
-          connectedNetworkSSID={connectedNetwork}
-        />
+    <CardComponent icon={WifiIcon} title='WiFi'>
+      <ConnectionNotification
+        message={scanStatus.message}
+        type={scanStatus.type as any}
+      />
+      <NetworkList
+        networks={networks}
+        selectedNetwork={selectedNetwork}
+        isCurrentlyConnected={isCurrentlyConnected}
+        onNetworkSelect={handleNetworkSelect}
+        connectedNetworkSSID={connectedNetwork}
+      />
 
-        <div className='wifi-connection__form'>
-          <div className='form-control'>
-            <label htmlFor='password'>WiFi Password</label>
-            <div className='form-control__input-wrapper'>
-              <input
-                type={isPasswordVisible ? 'text' : 'password'}
-                id='password'
-                value={password}
-                onChange={handlePasswordChange}
-                onKeyDown={handleKeyDown}
-                disabled={isConnecting || isDisconnecting}
-                placeholder='Enter network password'
-              />
-              <button
-                className='password-toggle-btn'
-                type='button'
-                onClick={togglePasswordVisibility}
-                disabled={isConnecting || isDisconnecting}
-                aria-label={
-                  isPasswordVisible ? 'Hide password' : 'Show password'
-                }
-              >
-                {isPasswordVisible ? (
-                  <HideIcon className='password-icon' />
-                ) : (
-                  <ShowIcon className='password-icon' />
-                )}
-              </button>
-            </div>
-          </div>
-          <div className='wifi-connection__form-actions'>
-            <button
-              className='btn btn-secondary'
-              onClick={scanNetworks}
-              disabled={
-                !deviceInfo ||
-                isScanning ||
-                isConnecting ||
-                isDisconnecting ||
-                isCheckingStatus
-              }
-              type='button'
-              title={!deviceInfo ? 'Waiting for device information...' : ''}
-            >
-              Scan Networdks
-            </button>
-            <button
-              className='btn btn-primary'
-              onClick={handleConnectToNetwork}
-              disabled={
-                isConnecting ||
-                isDisconnecting ||
-                !password.trim() ||
-                !selectedNetwork
-              }
-            >
-              {isConnecting ? 'Connecting...' : 'Connect'}
-            </button>
-          </div>
+      <div className='wifi-connection-form'>
+        <FormControl label='WiFi Password' htmlFor='password'>
+          <input
+            type={isPasswordVisible ? 'text' : 'password'}
+            id='password'
+            value={password}
+            onChange={handlePasswordChange}
+            onKeyDown={handleKeyDown}
+            disabled={isConnecting || isDisconnecting}
+            placeholder='Enter network password'
+          />
+          <button
+            className='password-toggle-btn'
+            type='button'
+            onClick={togglePasswordVisibility}
+            disabled={isConnecting || isDisconnecting}
+            aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}
+          >
+            {isPasswordVisible ? (
+              <HideIcon className='password-icon' />
+            ) : (
+              <ShowIcon className='password-icon' />
+            )}
+          </button>
+        </FormControl>
+        <div className='wifi-connection-form__actions'>
+          <button
+            className='btn btn-secondary'
+            onClick={scanNetworks}
+            disabled={
+              !deviceInfo ||
+              isScanning ||
+              isConnecting ||
+              isDisconnecting ||
+              isCheckingStatus
+            }
+            type='button'
+            title={!deviceInfo ? 'Waiting for device information...' : ''}
+          >
+            Scan Networdks
+          </button>
+          <button
+            className='btn btn-primary'
+            onClick={handleConnectToNetwork}
+            disabled={
+              isConnecting ||
+              isDisconnecting ||
+              !password.trim() ||
+              !selectedNetwork
+            }
+          >
+            {isConnecting ? 'Connecting...' : 'Connect'}
+          </button>
         </div>
       </div>
-    </div>
+    </CardComponent>
   );
 }

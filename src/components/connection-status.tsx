@@ -1,6 +1,7 @@
 import { useAppContext } from '../contexts/AppContext';
 import ConnectionNotification from './connection-notification';
 import './connection-status.css';
+import StatusAnnouncer from './status-announcer';
 
 export default function ConnectionStatus() {
   const { isConnected, disconnect, connectionStatus } = useAppContext();
@@ -22,18 +23,18 @@ export default function ConnectionStatus() {
       <div className='connection-status'>
         <div className='connection-status__content'>
           <div className='connection-status-message'>
-            <ConnectionNotification
+            <StatusAnnouncer
+              label={connectionStatus.type}
               message={connectionStatus.message}
-              type={connectionStatus.type}
             />
           </div>
           <button
-            className='btn btn-muted'
+            className='btn btn-rounded btn-outline'
             onClick={handleDisconnect}
             type='button'
             aria-label='Disconnect from BYTE-90 device'
           >
-            Disconnect
+            Leave
           </button>
         </div>
       </div>
