@@ -5,6 +5,7 @@ import type {
   CompatibilityCardProps,
   BrowserInfo,
 } from '../data/webserial.interface';
+import './compatibility-status.css';
 
 const CompatibilityStatus: React.FC<CompatibilityCardProps> = ({
   showDetails = true,
@@ -60,20 +61,26 @@ const CompatibilityStatus: React.FC<CompatibilityCardProps> = ({
 
   return (
     <>
-      <div role='status' aria-live='polite'>
-        <span>Browser compatibility:</span>
-        <span
-          aria-label={`Web Serial API is ${isSerialSupported ? 'supported' : 'not supported'} in your browser`}
-        >
-          {isSerialSupported ? 'Supported' : 'Not Supported'}
-        </span>
+      <div className='compatibility-status' role='status' aria-live='polite'>
+        <div className='compatibility-status__header'>
+          <span className='compatibility-status-title'>
+            Browser compatibility
+          </span>
+          <span
+            className='compatibility-status-label'
+            aria-label={`Web Serial API is ${isSerialSupported ? 'supported' : 'not supported'} in your browser`}
+          >
+            {isSerialSupported ? 'Supported' : 'Not Supported'}
+          </span>
+        </div>
+        <div className='compatibility-status__content'>
+          {showDetails && (
+            <p role='region' aria-label='Browser compatibility information'>
+              {getRecommendation()}
+            </p>
+          )}
+        </div>
       </div>
-
-      {showDetails && (
-        <p role='region' aria-label='Browser compatibility information'>
-          {getRecommendation()}
-        </p>
-      )}
     </>
   );
 };

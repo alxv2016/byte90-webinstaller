@@ -149,7 +149,14 @@ meter {
   --border-radius: 0.5rem;
   --border-radius-large: 0.75rem;
 
-  --c-black: #000;
+  --shadow-inset-100:
+    0rem -0.0625rem 0rem 0rem #b5b5b5 inset,
+    0rem 0rem 0rem 0.0625rem rgba(0, 0, 0, 0.1) inset,
+    0rem 0.03125rem 0rem 0.09375rem #fff inset;
+  --shadow-inset-200:
+    -0.0625rem 0rem 0.0625rem 0rem rgba(26, 26, 26, 0.122) inset,
+    0.0625rem 0rem 0.0625rem 0rem rgba(26, 26, 26, 0.122) inset,
+    0rem 0.125rem 0.0625rem 0rem rgba(26, 26, 26, 0.2) inset --c-black: #000;
   --c-white: #fff;
   --c-gray-100: #f8f9fa;
   --c-gray-200: #e9ecef;
@@ -191,19 +198,6 @@ body {
     'Segoe UI Symbol';
   background-color: var(--c-gray-200);
   color: var(--c-text);
-}
-
-main {
-  position: relative;
-  width: 100%;
-  max-width: var(--max-width);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin: auto;
-  padding: var(--spacing-lg);
-  padding-top: var(--spacing-2xl);
-  padding-bottom: var(--spacing-4xl);
 }
 
 .btn {

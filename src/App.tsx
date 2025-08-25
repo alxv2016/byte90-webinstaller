@@ -2,15 +2,20 @@ import ConnectionCard from './components/connection-card';
 import ConnectionStatus from './components/connection-status';
 import DeviceInfo from './components/device-info';
 import WiFiConnectionCard from './components/wifi-connection-card';
+import WifiStatusCard from './components/wifi-status-card';
 import FirmwareUpdateCard from './components/firmware-update-card';
 import CompatibilityStatus from './components/compatibility-status';
+import SupportCard from './components/support-card';
 import { AppProvider, useAppContext } from './contexts/AppContext';
+import Byte90Logo from './assets/byte90_logo.svg?react';
+import './app.css';
 
 // App component
 export default function App() {
   return (
     <AppProvider>
       <main role='main' aria-label='BYTE-90 Device Manager'>
+        <Byte90Logo className='byte90-logo' />
         <ConnectionCard />
         <ConnectedComponents />
         <DisconnectedComponents />
@@ -29,12 +34,14 @@ function ConnectedComponents() {
   }
 
   return (
-    <>
-      <ConnectionStatus />
+    <div className='connected-components'>
       <DeviceInfo />
+      <WifiStatusCard />
       <WiFiConnectionCard />
       <FirmwareUpdateCard />
-    </>
+      <SupportCard />
+      <ConnectionStatus />
+    </div>
   );
 }
 

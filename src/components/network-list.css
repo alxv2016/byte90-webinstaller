@@ -4,6 +4,7 @@
   width: 100%;
   display: flex;
   flex-direction: column;
+  margin-bottom: var(--spacing-lg);
 }
 
 .networks__list {
@@ -11,7 +12,7 @@
   display: flex;
   width: 100%;
   flex-direction: column;
-  height: 320px;
+  height: 144px;
   overflow-y: auto;
   border: 1px solid var(--c-gray-400);
   padding: var(--spacing-md) var(--spacing-lg);
@@ -21,6 +22,24 @@
 .networks__list:focus {
   outline: 2px solid #007bff;
   outline-offset: 2px;
+}
+
+.networks__list-empty-state {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--c-gray-600);
+  font-size: var(--body-01);
+}
+
+.wifi-find-icon {
+  width: 64px;
+  height: 64px;
+  fill: var(--c-gray-500);
 }
 
 .networks__item {

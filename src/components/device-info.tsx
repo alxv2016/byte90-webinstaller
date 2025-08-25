@@ -1,4 +1,5 @@
 import { useAppContext } from '../contexts/AppContext';
+import DeviceInfoIcon from '../assets/device_info.svg?react';
 import './device-info.css';
 
 export default function DeviceInfo() {
@@ -10,6 +11,10 @@ export default function DeviceInfo() {
 
   return (
     <div className='device-info'>
+      <div className='device-info__header'>
+        <DeviceInfoIcon className='device-info-icon' />
+        <h2 className='device-info__title'>Device Information</h2>
+      </div>
       <div
         className='device-info__content'
         role='region'

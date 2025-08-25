@@ -1,0 +1,54 @@
+/* WiFi Status Card Component Styles */
+.wifi-status-card {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  background-color: var(--c-primary);
+  padding: var(--spacing-sm) var(--spacing-xl);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--spacing-lg);
+}
+
+.wifi-status-card__content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+
+  .wifi-icon {
+    width: 24px;
+    height: 24px;
+    margin-right: var(--spacing-md);
+    fill: var(--c-white);
+  }
+}
+
+.wifi-status-card__actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-left: auto;
+}
+
+.wifi-status-card__status {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.wifi-status-card__label {
+  font-size: var(--body-02);
+  color: var(--c-white);
+  padding-right: var(--spacing-sm);
+  border-right: 1px solid var(--c-white);
+}
+
+.wifi-status-card__network {
+  font-size: var(--body-02);
+  color: var(--c-white);
+  font-weight: 600;
+  padding-left: var(--spacing-sm);
+}

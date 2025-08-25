@@ -1,0 +1,10 @@
+/* Connection Notification Component Styles */
+.connection-notification {
+  position: relative;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  margin-bottom: var(--spacing-sm);
+  color: var(--c-gray-700);
+  font-size: var(--body-02);
+}

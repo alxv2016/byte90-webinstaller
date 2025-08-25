@@ -1,4 +1,5 @@
 import React from 'react';
+import './connection-notification.css';
 
 // Import types from centralized location
 import type { StatusNotificationProps } from '../data/webserial.interface';
@@ -32,7 +33,12 @@ const ConnectionNotification: React.FC<StatusNotificationProps> = ({
   };
 
   return (
-    <div role={getRole()} aria-live={getAriaLive()} aria-atomic='true'>
+    <div
+      className='connection-notification'
+      role={getRole()}
+      aria-live={getAriaLive()}
+      aria-atomic='true'
+    >
       {message}
     </div>
   );

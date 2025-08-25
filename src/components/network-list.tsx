@@ -6,6 +6,7 @@ import Wifi2BarIcon from '../assets/wifi_2bar.svg?react';
 import Wifi3BarIcon from '../assets/wifi_3bar.svg?react';
 import Wifi4BarIcon from '../assets/wifi_4bar.svg?react';
 import CheckIcon from '../assets/check.svg?react';
+import WifiFindIcon from '../assets/wifi_find.svg?react';
 import './network-list.css';
 
 interface NetworkListProps {
@@ -110,12 +111,20 @@ export default function NetworkList({
   };
 
   if (networks.length === 0) {
-    return null;
+    return (
+      <div className='networks'>
+        <div className='networks__list'>
+          <div className='networks__list-empty-state'>
+            <WifiFindIcon className='wifi-find-icon' />
+            <p>Scan for available networks</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className='networks'>
-      <h4 id='networks__label'>Found {networks.length} networks:</h4>
       <ul
         className='networks__list'
         ref={listRef}

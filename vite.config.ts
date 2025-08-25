@@ -5,15 +5,7 @@ import svgr from 'vite-plugin-svgr';
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [
-    react(),
-    mkcert(),
-    svgr({
-      svgrOptions: {
-        icon: true,
-      },
-    }),
-  ],
+  plugins: [react(), mkcert(), svgr()],
   server: {
     https: true,
   },

@@ -95,10 +95,8 @@ export const useUpdater = ({
 
       const expectedFilename =
         updateType === 'firmware' ? 'byte90.bin' : 'byte90animations.bin';
-      const expectedString =
-        updateType === 'firmware' ? 'byte90' : 'byte90animations';
 
-      if (!file.name.includes(expectedString)) {
+      if (file.name !== expectedFilename) {
         updateStatus(
           `Please select the correct file (${expectedFilename})`,
           'error'
