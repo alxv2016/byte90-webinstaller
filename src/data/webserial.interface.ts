@@ -103,6 +103,7 @@ export interface UseSerialProps {
   onConnectionChange: (connected: boolean) => void;
   onDeviceInfo: (info: DeviceInfo | null) => void;
   onConnectionStatus: (status: StatusMessage) => void;
+  onNotification?: (notification: { message: string; data?: any }) => void;
 }
 
 export interface UseSerialReturn {

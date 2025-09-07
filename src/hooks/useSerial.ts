@@ -35,6 +35,7 @@ const RESPONSE_PREFIXES = {
   OK: 'OK:',
   ERROR: 'ERROR:',
   PROGRESS: 'PROGRESS:',
+  NOTIFY: 'NOTIFY:',
 } as const;
 
 // Try with hardware flow control first, then without
@@ -70,6 +71,7 @@ export const useSerial = ({
   onConnectionChange,
   onDeviceInfo,
   onConnectionStatus,
+  onNotification,
 }: UseSerialProps): UseSerialReturn => {
   const [isConnected, setIsConnected] = useState<boolean>(false);
 
@@ -83,6 +85,12 @@ export const useSerial = ({
   const pendingCommandRef = useRef<((response: SerialResponse) => void) | null>(
     null
   );
+  const notificationHandlerRef = useRef<
+    ((notification: { message: string; data?: any }) => void) | null
+  >(null);
+
+  // Set the notification handler ref
+  notificationHandlerRef.current = onNotification || null;
 
   const updateConnectionStatus = useCallback(
     (message: string, type: StatusMessage['type'] = 'info') => {
@@ -315,6 +323,28 @@ export const useSerial = ({
         }
         return;
       }
+    } else if (line.startsWith(RESPONSE_PREFIXES.NOTIFY)) {
+      const jsonStr = line.substring(RESPONSE_PREFIXES.NOTIFY.length);
+      console.log(`[useSerial] 🔔 Parsing NOTIFY response, JSON: "${jsonStr}"`);
+      try {
+        const notificationData = JSON.parse(jsonStr);
+        console.log(
+          `[useSerial] ✅ NOTIFY response parsed successfully:`,
+          notificationData
+        );
+        if (notificationHandlerRef.current) {
+          notificationHandlerRef.current({
+            message: notificationData.message || '',
+            data: notificationData,
+          });
+        }
+      } catch (e) {
+        console.log(
+          `[useSerial] ❌ Failed to parse NOTIFY JSON: "${jsonStr}", error:`,
+          e
+        );
+      }
+      return; // Don't process as a command response
     } else {
       // Device might send initialization message or other non-prefixed data
       // Try parsing as direct JSON (for initialization messages)

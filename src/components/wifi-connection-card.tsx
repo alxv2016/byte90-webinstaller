@@ -52,6 +52,7 @@ export default function WiFiConnectionCard() {
   }, [connectionStatus.type, deviceInfo, isCheckingStatus, checkWiFiStatus]);
 
   const handlePasswordChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('Password input value:', event.target.value);
     setPassword(event.target.value);
   };
 

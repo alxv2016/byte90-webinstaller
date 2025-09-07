@@ -4,6 +4,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useRef,
 } from 'react';
 import type { ReactNode } from 'react';
 import { useSerial } from '../hooks/useSerial';
@@ -152,11 +153,48 @@ export function AppProvider({ children }: AppProviderProps) {
   const [connectedNetwork, setConnectedNetwork] = useState('');
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
+  // Ref to store the disconnect function
+  const disconnectRef = useRef<(() => Promise<boolean>) | null>(null);
+
+  // Handle device notifications (like "Update mode exiting")
+  const handleDeviceNotification = useCallback(
+    (notification: { message: string; data?: any }) => {
+      console.log('🔔 Device notification received:', notification);
+
+      if (notification.message.includes('Update mode exiting')) {
+        console.log('Update mode is exiting, preparing to disconnect...');
+
+        // Show user-friendly message
+        setConnectionStatus({
+          message:
+            'Device exited update mode. Serial connection will be closed.',
+          type: 'warning',
+        });
+
+        // Disconnect after a short delay to ensure the message is processed
+        setTimeout(async () => {
+          try {
+            if (disconnectRef.current) {
+              await disconnectRef.current();
+            }
+          } catch (error) {
+            console.error(
+              'Error during notification-triggered disconnect:',
+              error
+            );
+          }
+        }, 500);
+      }
+    },
+    [setConnectionStatus]
+  );
+
   // Initialize serial hook
   const serial = useSerial({
     onConnectionChange: setIsConnected,
     onDeviceInfo: setDeviceInfo,
     onConnectionStatus: setConnectionStatus,
+    onNotification: handleDeviceNotification,
   });
 
   // Initialize updater hook
@@ -167,6 +205,11 @@ export function AppProvider({ children }: AppProviderProps) {
     onShowProgress: setShowProgress,
     onUpdateInProgress: setUpdateInProgress,
   });
+
+  // Set the disconnect ref after serial hook is created
+  useEffect(() => {
+    disconnectRef.current = serial.disconnect;
+  }, [serial]);
 
   // Connection actions
   const connect = useCallback(async (): Promise<void> => {
