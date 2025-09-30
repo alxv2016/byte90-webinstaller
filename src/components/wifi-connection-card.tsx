@@ -36,6 +36,14 @@ export default function WiFiConnectionCard() {
     checkWiFiStatus,
   } = useAppContext();
 
+  if (
+    !isSerialConnected ||
+    !deviceInfo?.firmware_version ||
+    parseInt(deviceInfo.firmware_version.split('.')[0]) < 2
+  ) {
+    return null;
+  }
+
   const hasCheckedStatus = useRef(false);
 
   // Check WiFi status when connection is successful
