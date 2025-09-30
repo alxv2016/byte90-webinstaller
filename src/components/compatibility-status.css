@@ -8,6 +8,7 @@
   border-radius: var(--border-radius);
   border: 1px solid var(--c-gray-400);
   margin-top: auto;
+  box-shadow: var(--shadow-inset-200);
 }
 
 .compatibility-status__header {

@@ -60,7 +60,6 @@ export default function WiFiConnectionCard() {
   }, [connectionStatus.type, deviceInfo, isCheckingStatus, checkWiFiStatus]);
 
   const handlePasswordChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('Password input value:', event.target.value);
     setPassword(event.target.value);
   };
 
@@ -91,7 +90,6 @@ export default function WiFiConnectionCard() {
     selectedNetwork,
     isCurrentlyConnected,
     shouldShowForm: selectedNetwork && !isCurrentlyConnected,
-    password: password ? 'has password' : 'no password',
   });
 
   if (!isSerialConnected) {
@@ -151,7 +149,7 @@ export default function WiFiConnectionCard() {
             type='button'
             title={!deviceInfo ? 'Waiting for device information...' : ''}
           >
-            Scan Networdks
+            Scan Network
           </button>
           <button
             className='btn btn-primary'

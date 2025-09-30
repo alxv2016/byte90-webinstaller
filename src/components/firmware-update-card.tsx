@@ -7,6 +7,7 @@ import InfoIcon from '../assets/info.svg?react';
 import ExpandIcon from '../assets/expand.svg?react';
 import CardComponent from './card-component';
 import FormControl from './form-control';
+import './firmware-update-card.css';
 
 const FirmwareUpdateCard: React.FC = () => {
   const {

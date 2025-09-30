@@ -22,7 +22,7 @@
   width: 100%;
   max-width: var(--max-width);
   background-color: var(--c-white);
-  border-top: 1px solid var(--c-gray-300);
+  border: 1px solid var(--c-gray-300);
   padding: var(--spacing-sm);
   z-index: 90;
   border-radius: var(--border-radius);

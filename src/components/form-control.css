@@ -37,7 +37,7 @@
   align-items: center;
   width: 100%;
   border: 1px solid var(--c-gray-400);
-  min-height: 32px;
+  min-height: 36px;
   padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--border-radius);
   font-size: var(--body-02);

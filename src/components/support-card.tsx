@@ -15,17 +15,17 @@ export default function SupportCard() {
   const supportLinks: SupportLink[] = [
     {
       text: 'Byte90 Firmware downloads',
-      href: '#',
+      href: 'https://github.com/alxv2016/Byte90-alxvlabs',
       icon: FirmwareDownloadIcon,
     },
     {
       text: 'Purchase Byte90 Series 2',
-      href: '#',
+      href: 'https://labs.alxvtoronto.com/',
       icon: PurchaseIcon,
     },
     {
       text: 'FAQ',
-      href: '#',
+      href: 'https://labs.alxvtoronto.com/pages/support',
       icon: HelpIcon,
     },
   ];
@@ -35,7 +35,12 @@ export default function SupportCard() {
       const IconComponent = link.icon;
       return (
         <li key={index} className='support-link'>
-          <a href={link.href || '#'} className='support-link__item'>
+          <a
+            href={link.href || '#'}
+            className='support-link__item'
+            target='_blank'
+            rel='noopener noreferrer'
+          >
             {IconComponent && <IconComponent className='support-link__icon' />}
             <span>{link.text}</span>
           </a>

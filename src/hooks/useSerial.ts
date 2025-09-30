@@ -124,9 +124,6 @@ export const useSerial = ({
           console.log(
             `[useSerial] Sending ${command} Command: ${commandString.trim()}`
           );
-          if (data) {
-            console.log(`[useSerial] ${command} Data: ${data}`);
-          }
           console.log(`[useSerial] ${command} Timeout set to: ${timeoutMs}ms`);
         }
 

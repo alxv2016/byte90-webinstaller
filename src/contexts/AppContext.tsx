@@ -332,11 +332,44 @@ export function AppProvider({ children }: AppProviderProps) {
         const sortedNetworks = [...parsedResponse.networks].sort(
           (a, b) => b.rssi - a.rssi
         );
-        setNetworks(sortedNetworks);
-        setScanStatus({
-          message: `Found ${sortedNetworks.length} networks`,
-          type: 'success',
-        });
+
+        // If we got 0 networks, WiFi might not be enabled yet - retry once
+        if (sortedNetworks.length === 0) {
+          console.log('First scan returned 0 networks, retrying...');
+          setScanStatus({
+            message: 'WiFi initializing, scanning again...',
+            type: 'info',
+          });
+
+          // Wait a moment for WiFi to initialize
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          const retryResponse = await serial.sendCommand('WIFI_SCAN');
+          const retryParsedResponse = retryResponse as unknown as any;
+
+          if (retryParsedResponse.success && retryParsedResponse.networks) {
+            const retrySortedNetworks = [...retryParsedResponse.networks].sort(
+              (a, b) => b.rssi - a.rssi
+            );
+            setNetworks(retrySortedNetworks);
+            setScanStatus({
+              message: `Found ${retrySortedNetworks.length} networks`,
+              type: 'success',
+            });
+          } else {
+            setScanStatus({
+              message:
+                retryParsedResponse.message || 'No networks found after retry',
+              type: 'warning',
+            });
+          }
+        } else {
+          setNetworks(sortedNetworks);
+          setScanStatus({
+            message: `Found ${sortedNetworks.length} networks`,
+            type: 'success',
+          });
+        }
       } else {
         setScanStatus({
           message: parsedResponse.message || 'No networks found',
@@ -395,7 +428,6 @@ export function AppProvider({ children }: AppProviderProps) {
 
     try {
       const connectData = `${selectedNetwork},${password}`;
-      console.log(`Attempting to connect to network: ${selectedNetwork}`);
 
       const response = await serial.sendCommand('WIFI_CONNECT', connectData);
       console.log('WiFi Connect Response:', response);
@@ -498,28 +530,21 @@ export function AppProvider({ children }: AppProviderProps) {
       const response = await serial.sendCommand('WIFI_STATUS');
       console.log('WiFi Status Response:', response);
 
-      if (response && typeof response === 'object' && 'success' in response) {
+      if (response && typeof response === 'object' && 'connected' in response) {
         const wifiStatus = response as unknown as any;
-        if (wifiStatus.success) {
-          if (wifiStatus.connected) {
-            setConnectedNetwork(wifiStatus.ssid || '');
-            setIsCurrentlyConnected(true);
-            setScanStatus({
-              message: `Connected to: ${wifiStatus.ssid}`,
-              type: 'success',
-            });
-          } else {
-            setConnectedNetwork('');
-            setIsCurrentlyConnected(false);
-            setScanStatus({
-              message: 'Not connected to any network',
-              type: 'info',
-            });
-          }
-        } else {
+        if (wifiStatus.connected) {
+          setConnectedNetwork(wifiStatus.ssid || '');
+          setIsCurrentlyConnected(true);
           setScanStatus({
-            message: wifiStatus.message || 'Failed to check WiFi status',
-            type: 'error',
+            message: `Connected to: ${wifiStatus.ssid}`,
+            type: 'success',
+          });
+        } else {
+          setConnectedNetwork('');
+          setIsCurrentlyConnected(false);
+          setScanStatus({
+            message: 'Not connected to any network',
+            type: 'info',
           });
         }
       } else {

@@ -151,12 +151,13 @@ meter {
 
   --shadow-inset-100:
     0rem -0.0625rem 0rem 0rem #b5b5b5 inset,
-    0rem 0rem 0rem 0.0625rem rgba(0, 0, 0, 0.1) inset,
-    0rem 0.03125rem 0rem 0.09375rem #fff inset;
+    0rem 0rem 0rem 0.0625rem rgba(0, 0, 0, 0.075) inset,
+    0rem 0.03125rem 0rem 0.09375rem rgba(255, 255, 255, 0.25) inset;
   --shadow-inset-200:
     -0.0625rem 0rem 0.0625rem 0rem rgba(26, 26, 26, 0.122) inset,
     0.0625rem 0rem 0.0625rem 0rem rgba(26, 26, 26, 0.122) inset,
     0rem 0.125rem 0.0625rem 0rem rgba(26, 26, 26, 0.2) inset --c-black: #000;
+
   --c-white: #fff;
   --c-gray-100: #f8f9fa;
   --c-gray-200: #e9ecef;
@@ -216,6 +217,7 @@ body {
   border: 1px solid transparent;
   color: var(--c-white);
   font-size: var(--body-01);
+  box-shadow: var(--shadow-inset-200);
 }
 
 .btn.btn-icon {
