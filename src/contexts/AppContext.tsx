@@ -16,7 +16,6 @@ import type {
   UpdateType,
   UseSerialReturn,
   Network,
-  WiFiStatus,
 } from '../data/webserial.interface';
 
 // Context state interface

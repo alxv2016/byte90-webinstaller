@@ -1,5 +1,4 @@
 import { useAppContext } from '../contexts/AppContext';
-import ConnectionNotification from './connection-notification';
 import './connection-status.css';
 import StatusAnnouncer from './status-announcer';
 

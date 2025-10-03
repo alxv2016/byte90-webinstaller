@@ -1,5 +1,5 @@
 import type { Network } from '../data/webserial.interface';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import WifiSecureIcon from '../assets/wifi_secure.svg?react';
 import Wifi1BarIcon from '../assets/wifi_1bar.svg?react';
 import Wifi2BarIcon from '../assets/wifi_2bar.svg?react';

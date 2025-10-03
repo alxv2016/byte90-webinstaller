@@ -1,4 +1,3 @@
-import React from 'react';
 import './status-announcer.css';
 
 interface StatusAnnouncerProps {
