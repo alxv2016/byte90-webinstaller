@@ -506,17 +506,33 @@ export const useSerial = ({
         )) as DeviceInfo;
 
         if (info && info.success) {
-          // Check if device is in Update Mode
-          if (info.current_mode !== 'Update Mode') {
+          // Check if device is in Update Mode or Crash Mode
+          if (
+            info.current_mode !== 'Update Mode' &&
+            info.current_mode !== 'Crash Mode'
+          ) {
             await disconnect();
+            updateConnectionStatus(
+              'Device must be in Update Mode or Crash Mode. Current mode: ' +
+                info.current_mode,
+              'error'
+            );
             return false;
           }
 
           onDeviceInfo(info);
-          updateConnectionStatus(
-            'Connected in system configuration',
-            'success'
-          );
+          // Update status message based on mode
+          if (info.current_mode === 'Crash Mode') {
+            updateConnectionStatus(
+              'Connected in crash recovery mode',
+              'warning' // or 'error' to make it more visible
+            );
+          } else {
+            updateConnectionStatus(
+              'Connected in system configuration',
+              'success'
+            );
+          }
         } else {
           await disconnect();
           updateConnectionStatus(
