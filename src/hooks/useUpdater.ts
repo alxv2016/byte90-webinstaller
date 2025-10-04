@@ -144,11 +144,29 @@ export const useUpdater = ({
 
         updateProgress(3, 'Starting new update...');
 
-        console.log(`Starting update: ${file.size} bytes, type: ${updateType}`);
+        // Map update types to device-compatible types
+        let deviceUpdateType: string;
+        switch (updateType) {
+          case 'firmware':
+            deviceUpdateType = 'firmware';
+            break;
+          case 'filesystem':
+            deviceUpdateType = 'filesystem';
+            break;
+          case 'partitions':
+            deviceUpdateType = 'filesystem';
+            break;
+          default:
+            deviceUpdateType = 'firmware';
+        }
+
+        console.log(
+          `Starting update: ${file.size} bytes, type: ${updateType} (device type: ${deviceUpdateType})`
+        );
 
         const startResponse = await serial.sendCommandWithRetry(
           serial.SERIAL_COMMANDS.START_UPDATE,
-          `${file.size},${updateType}`,
+          `${file.size},${deviceUpdateType}`,
           2
         );
 
@@ -164,7 +182,15 @@ export const useUpdater = ({
           );
         }
 
-        updateProgress(5, 'Reading firmware file...');
+        // Update progress message based on type
+        const typeLabel =
+          updateType === 'partitions'
+            ? 'partition table'
+            : updateType === 'filesystem'
+              ? 'filesystem'
+              : 'firmware';
+
+        updateProgress(5, `Reading ${typeLabel} file...`);
 
         const arrayBuffer = await file.arrayBuffer();
         const totalChunks = Math.ceil(arrayBuffer.byteLength / CHUNK_SIZE);
@@ -172,7 +198,7 @@ export const useUpdater = ({
         console.log(
           `File read: ${arrayBuffer.byteLength} bytes in ${totalChunks} chunks of ${CHUNK_SIZE} bytes each`
         );
-        updateProgress(10, 'Starting upload...');
+        updateProgress(10, `Starting ${typeLabel} upload...`);
 
         const startTime = performance.now();
         let bytesTransferred = 0;
@@ -190,7 +216,7 @@ export const useUpdater = ({
               10 + (bytesTransferred / arrayBuffer.byteLength) * 80;
             updateProgress(
               transferProgress,
-              `Uploading: ${Math.round(transferProgress)}% (${formatBytes(bytesTransferred)}/${formatBytes(arrayBuffer.byteLength)})`
+              `Uploading ${typeLabel}: ${Math.round(transferProgress)}% (${formatBytes(bytesTransferred)}/${formatBytes(arrayBuffer.byteLength)})`
             );
           }
 
@@ -243,7 +269,7 @@ export const useUpdater = ({
           )} in ${totalTime.toFixed(2)}s (${formatBytes(avgSpeed)}/s)`
         );
 
-        updateProgress(95, 'Finalizing update...');
+        updateProgress(95, `Finalizing ${typeLabel} update...`);
 
         const finishResponse = await serial.sendCommandWithRetry(
           serial.SERIAL_COMMANDS.FINISH_UPDATE
@@ -253,9 +279,12 @@ export const useUpdater = ({
           throw new Error(finishResponse?.message || 'Failed to finish update');
         }
 
-        updateProgress(100, 'Update completed successfully!');
+        updateProgress(
+          100,
+          `${typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1)} update completed successfully!`
+        );
         updateStatus(
-          'Update completed! Device will restart automatically.',
+          `${typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1)} update completed! Device will restart automatically.`,
           'success'
         );
 
