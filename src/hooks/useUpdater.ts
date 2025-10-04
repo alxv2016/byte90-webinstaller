@@ -93,20 +93,8 @@ export const useUpdater = ({
         return;
       }
 
-      let expectedString: string;
-      switch (updateType) {
-        case 'firmware':
-          expectedString = 'byte90';
-          break;
-        case 'filesystem':
-          expectedString = 'byte90animations';
-          break;
-        case 'partitions':
-          expectedString = 'partitions';
-          break;
-        default:
-          expectedString = '';
-      }
+      const expectedString =
+        updateType === 'firmware' ? 'byte90' : 'filesystem';
 
       if (!file.name.includes(expectedString)) {
         updateStatus(
@@ -144,29 +132,11 @@ export const useUpdater = ({
 
         updateProgress(3, 'Starting new update...');
 
-        // Map update types to device-compatible types
-        let deviceUpdateType: string;
-        switch (updateType) {
-          case 'firmware':
-            deviceUpdateType = 'firmware';
-            break;
-          case 'filesystem':
-            deviceUpdateType = 'filesystem';
-            break;
-          case 'partitions':
-            deviceUpdateType = 'filesystem';
-            break;
-          default:
-            deviceUpdateType = 'firmware';
-        }
-
-        console.log(
-          `Starting update: ${file.size} bytes, type: ${updateType} (device type: ${deviceUpdateType})`
-        );
+        console.log(`Starting update: ${file.size} bytes, type: ${updateType}`);
 
         const startResponse = await serial.sendCommandWithRetry(
           serial.SERIAL_COMMANDS.START_UPDATE,
-          `${file.size},${deviceUpdateType}`,
+          `${file.size},${updateType}`,
           2
         );
 
@@ -182,15 +152,7 @@ export const useUpdater = ({
           );
         }
 
-        // Update progress message based on type
-        const typeLabel =
-          updateType === 'partitions'
-            ? 'partition table'
-            : updateType === 'filesystem'
-              ? 'filesystem'
-              : 'firmware';
-
-        updateProgress(5, `Reading ${typeLabel} file...`);
+        updateProgress(5, 'Reading firmware file...');
 
         const arrayBuffer = await file.arrayBuffer();
         const totalChunks = Math.ceil(arrayBuffer.byteLength / CHUNK_SIZE);
@@ -198,7 +160,7 @@ export const useUpdater = ({
         console.log(
           `File read: ${arrayBuffer.byteLength} bytes in ${totalChunks} chunks of ${CHUNK_SIZE} bytes each`
         );
-        updateProgress(10, `Starting ${typeLabel} upload...`);
+        updateProgress(10, 'Starting upload...');
 
         const startTime = performance.now();
         let bytesTransferred = 0;
@@ -216,7 +178,7 @@ export const useUpdater = ({
               10 + (bytesTransferred / arrayBuffer.byteLength) * 80;
             updateProgress(
               transferProgress,
-              `Uploading ${typeLabel}: ${Math.round(transferProgress)}% (${formatBytes(bytesTransferred)}/${formatBytes(arrayBuffer.byteLength)})`
+              `Uploading: ${Math.round(transferProgress)}% (${formatBytes(bytesTransferred)}/${formatBytes(arrayBuffer.byteLength)})`
             );
           }
 
@@ -269,7 +231,7 @@ export const useUpdater = ({
           )} in ${totalTime.toFixed(2)}s (${formatBytes(avgSpeed)}/s)`
         );
 
-        updateProgress(95, `Finalizing ${typeLabel} update...`);
+        updateProgress(95, 'Finalizing update...');
 
         const finishResponse = await serial.sendCommandWithRetry(
           serial.SERIAL_COMMANDS.FINISH_UPDATE
@@ -279,12 +241,9 @@ export const useUpdater = ({
           throw new Error(finishResponse?.message || 'Failed to finish update');
         }
 
-        updateProgress(
-          100,
-          `${typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1)} update completed successfully!`
-        );
+        updateProgress(100, 'Update completed successfully!');
         updateStatus(
-          `${typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1)} update completed! Device will restart automatically.`,
+          'Update completed! Device will restart automatically.',
           'success'
         );
 

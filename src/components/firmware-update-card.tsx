@@ -57,16 +57,7 @@ const FirmwareUpdateCard: React.FC = () => {
   const isUploadDisabled = !selectedFile || updateInProgress;
 
   const getExpectedFilename = (type: UpdateType): string => {
-    switch (type) {
-      case 'firmware':
-        return 'byte90.bin';
-      case 'filesystem':
-        return 'byte90animations.bin';
-      case 'partitions':
-        return 'partitions.bin';
-      default:
-        return 'unknown.bin';
-    }
+    return type === 'firmware' ? 'byte90.bin' : 'filesystem.bin';
   };
 
   const validateFile = (
@@ -80,20 +71,7 @@ const FirmwareUpdateCard: React.FC = () => {
       return { isValid: false, message: 'Please select a .bin file' };
     }
 
-    let expectedString: string;
-    switch (updateType) {
-      case 'firmware':
-        expectedString = 'byte90';
-        break;
-      case 'filesystem':
-        expectedString = 'byte90animations';
-        break;
-      case 'partitions':
-        expectedString = 'partitions';
-        break;
-      default:
-        expectedString = '';
-    }
+    const expectedString = updateType === 'firmware' ? 'byte90' : 'filesystem';
 
     if (!file.name.includes(expectedString)) {
       return {
@@ -128,10 +106,7 @@ const FirmwareUpdateCard: React.FC = () => {
             aria-describedby='updateType-help'
           >
             <option value='firmware'>Firmware (byte90.bin)</option>
-            <option value='filesystem'>
-              Animations (byte90animations.bin)
-            </option>
-            <option value='partitions'>Partitions (partitions.bin)</option>
+            <option value='filesystem'>Filesystem (filesystem.bin)</option>
           </select>
           <ExpandIcon className='select-icon' />
         </FormControl>
