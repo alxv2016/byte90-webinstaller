@@ -73,10 +73,15 @@ const FirmwareUpdateCard: React.FC = () => {
 
     const expectedString =
       updateType === 'firmware' ? 'byte90' : 'byte90animations';
-    if (!file.name.includes(expectedString)) {
+
+    // Check for expected string or "partitions" in filename
+    if (
+      !file.name.includes(expectedString) &&
+      !file.name.includes('partitions')
+    ) {
       return {
         isValid: false,
-        message: `Please select the correct file (${getExpectedFilename(updateType)})`,
+        message: `Please select the correct file (${getExpectedFilename(updateType)}) or a partitions file`,
       };
     }
 
