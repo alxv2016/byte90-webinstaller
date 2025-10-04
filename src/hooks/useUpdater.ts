@@ -93,24 +93,24 @@ export const useUpdater = ({
         return;
       }
 
-      let expectedFilename: string;
+      let expectedString: string;
       switch (updateType) {
         case 'firmware':
-          expectedFilename = 'byte90.bin';
+          expectedString = 'byte90';
           break;
         case 'filesystem':
-          expectedFilename = 'byte90animations.bin';
+          expectedString = 'byte90animations';
           break;
         case 'partitions':
-          expectedFilename = 'partitions.bin';
+          expectedString = 'partitions';
           break;
         default:
-          expectedFilename = 'unknown.bin';
+          expectedString = '';
       }
 
-      if (file.name !== expectedFilename) {
+      if (!file.name.includes(expectedString)) {
         updateStatus(
-          `Please select the correct file (${expectedFilename})`,
+          `Please select a file containing "${expectedString}" (e.g., ${expectedString}.bin)`,
           'error'
         );
         return;
