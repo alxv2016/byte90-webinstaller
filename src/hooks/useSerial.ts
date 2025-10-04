@@ -525,7 +525,7 @@ export const useSerial = ({
           if (info.current_mode === 'Crash Mode') {
             updateConnectionStatus(
               'Connected in crash recovery mode',
-              'warning' // or 'error' to make it more visible
+              'success' // or 'error' to make it more visible
             );
           } else {
             updateConnectionStatus(
