@@ -42,7 +42,7 @@ export interface ProgressUpdate {
 }
 
 // Update types
-export type UpdateType = 'firmware' | 'filesystem';
+export type UpdateType = 'firmware' | 'filesystem' | 'partitions';
 
 // Serial communication types
 export interface SerialResponse {
