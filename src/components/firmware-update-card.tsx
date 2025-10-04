@@ -88,12 +88,12 @@ const FirmwareUpdateCard: React.FC = () => {
   return (
     <CardComponent
       icon={FirmwareUpdateIcon}
-      title='Firmware or Animations Update'
+      title='Firmware & Filesystem Update'
       footerIcon={InfoIcon}
       footerDescription='Your device will restart automatically once the firmware update is complete. Keep this window active during the update. Do not refresh or close it.'
     >
       <div className='firmware-update__help' id='updateType-help'>
-        Select the type of update you want to perform on your BYTE-90 device.
+        Select the firmware or filesystem to update your BYTE-90 device.
       </div>
 
       <div className='firmware-update-form'>
